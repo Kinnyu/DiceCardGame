@@ -1,3 +1,14 @@
+import {
+  arrangeCardsRequest,
+  createRoomRequest,
+  fetchRoom,
+  joinRoomRequest,
+  leaveRoomRequest,
+  rollTurnRequest,
+  startGameRequest
+} from "./api-client.js";
+import { getPlayerNameById, renderRoom as renderRoomView } from "./room-render.js";
+
 const lobbyView = document.querySelector("#lobbyView");
 const roomView = document.querySelector("#roomView");
 const nameInput = document.querySelector("#nameInput");
@@ -7,14 +18,64 @@ const joinRoomButton = document.querySelector("#joinRoomButton");
 const leaveRoomButton = document.querySelector("#leaveRoomButton");
 const startGameButton = document.querySelector("#startGameButton");
 const copyCodeButton = document.querySelector("#copyCodeButton");
+const submitArrangeButton = document.querySelector("#submitArrangeButton");
+const rollButton = document.querySelector("#rollButton");
 const lobbyMessage = document.querySelector("#lobbyMessage");
 const roomMessage = document.querySelector("#roomMessage");
 const playerList = document.querySelector("#playerList");
 const roomStatus = document.querySelector("#roomStatus");
 const playerCount = document.querySelector("#playerCount");
+const gamePanel = document.querySelector("#gamePanel");
+const gamePhaseTitle = document.querySelector("#gamePhaseTitle");
+const turnIndicator = document.querySelector("#turnIndicator");
+const diceResult = document.querySelector("#diceResult");
+const arrangePanel = document.querySelector("#arrangePanel");
+const arrangeHint = document.querySelector("#arrangeHint");
+const arrangeSlots = document.querySelector("#arrangeSlots");
+const handCards = document.querySelector("#handCards");
+const turnPanel = document.querySelector("#turnPanel");
+const turnHint = document.querySelector("#turnHint");
+const boardCards = document.querySelector("#boardCards");
+const scoreList = document.querySelector("#scoreList");
+const finishedPanel = document.querySelector("#finishedPanel");
+const winnerText = document.querySelector("#winnerText");
+
+const elements = {
+  lobbyView,
+  roomView,
+  nameInput,
+  roomCodeInput,
+  createRoomButton,
+  joinRoomButton,
+  leaveRoomButton,
+  startGameButton,
+  copyCodeButton,
+  submitArrangeButton,
+  rollButton,
+  lobbyMessage,
+  roomMessage,
+  playerList,
+  roomStatus,
+  playerCount,
+  gamePanel,
+  gamePhaseTitle,
+  turnIndicator,
+  diceResult,
+  arrangePanel,
+  arrangeHint,
+  arrangeSlots,
+  handCards,
+  turnPanel,
+  turnHint,
+  boardCards,
+  scoreList,
+  finishedPanel,
+  winnerText
+};
 
 const playerId = getOrCreatePlayerId();
 const pollingMs = 1200;
+const handSize = 6;
 
 let currentRoom = null;
 let roomPoll = null;
@@ -22,6 +83,11 @@ let activePollingCode = null;
 let pollAbortController = null;
 let pollInFlight = false;
 let restoreRequestId = 0;
+let latestRoomRequestId = 0;
+let appliedRoomRequestId = 0;
+let pendingAction = "";
+let arrangement = Array(handSize).fill(null);
+let arrangementHandSignature = "";
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
 
@@ -30,6 +96,8 @@ joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
 startGameButton.addEventListener("click", startGame);
 copyCodeButton.addEventListener("click", copyRoomCode);
+submitArrangeButton.addEventListener("click", arrangeCards);
+rollButton.addEventListener("click", rollTurn);
 roomCodeInput.addEventListener("input", () => {
   roomCodeInput.value = roomCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 });
@@ -56,20 +124,9 @@ function getPlayerName() {
   return name;
 }
 
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options
-  });
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const error = new Error(payload.error || "操作失敗，請再試一次。");
-    error.status = response.status;
-    throw error;
-  }
-
-  return payload;
+function nextRoomRequestId() {
+  latestRoomRequestId += 1;
+  return latestRoomRequestId;
 }
 
 async function createRoom() {
@@ -77,19 +134,19 @@ async function createRoom() {
   const name = getPlayerName();
 
   if (!name) {
-    lobbyMessage.textContent = "先輸入暱稱，再建立房間。";
+    lobbyMessage.textContent = "請先輸入暱稱，再建立房間。";
     nameInput.focus();
     return;
   }
 
+  setBusy("create", true);
   try {
-    const payload = await requestJson("/api/rooms", {
-      method: "POST",
-      body: JSON.stringify({ playerId, name })
-    });
-    enterRoom(payload.room);
+    const payload = await createRoomRequest(playerId, name);
+    enterRoom(payload.room, nextRoomRequestId());
   } catch (error) {
     lobbyMessage.textContent = error.message;
+  } finally {
+    setBusy("create", false);
   }
 }
 
@@ -99,7 +156,7 @@ async function joinRoom() {
   const code = roomCodeInput.value.trim().toUpperCase();
 
   if (!name) {
-    lobbyMessage.textContent = "先輸入暱稱，再加入房間。";
+    lobbyMessage.textContent = "請先輸入暱稱，再加入房間。";
     nameInput.focus();
     return;
   }
@@ -110,14 +167,14 @@ async function joinRoom() {
     return;
   }
 
+  setBusy("join", true);
   try {
-    const payload = await requestJson(`/api/rooms/${code}/join`, {
-      method: "POST",
-      body: JSON.stringify({ playerId, name })
-    });
-    enterRoom(payload.room);
+    const payload = await joinRoomRequest(code, playerId, name);
+    enterRoom(payload.room, nextRoomRequestId());
   } catch (error) {
     lobbyMessage.textContent = error.message;
+  } finally {
+    setBusy("join", false);
   }
 }
 
@@ -133,10 +190,7 @@ async function leaveRoom() {
   showLobby();
 
   try {
-    await requestJson(`/api/rooms/${code}/leave`, {
-      method: "POST",
-      body: JSON.stringify({ playerId })
-    });
+    await leaveRoomRequest(code, playerId);
   } catch {
     // The user has already returned to the lobby; a failed leave call does not need UI noise.
   }
@@ -148,18 +202,20 @@ async function startGame() {
   }
 
   const code = currentRoom.code;
+  const requestId = nextRoomRequestId();
   roomMessage.textContent = "";
+  setBusy("start", true);
 
   try {
-    const payload = await requestJson(`/api/rooms/${code}/start`, {
-      method: "POST",
-      body: JSON.stringify({ playerId })
-    });
+    const payload = await startGameRequest(code, playerId);
     if (currentRoom?.code === code) {
-      renderRoom(payload.room);
+      renderRoom(payload.room, requestId);
+      await pollRoomOnce(code, { force: true });
     }
   } catch (error) {
     roomMessage.textContent = error.message;
+  } finally {
+    setBusy("start", false);
   }
 }
 
@@ -172,8 +228,58 @@ async function copyRoomCode() {
   roomMessage.textContent = "房號已複製。";
 }
 
-function enterRoom(room) {
-  renderRoom(room);
+async function arrangeCards() {
+  if (!currentRoom || pendingAction) {
+    return;
+  }
+
+  const cardIds = arrangement.map((card) => card?.instanceId || card?.id || "");
+  if (cardIds.some((id) => !id)) {
+    roomMessage.textContent = "請先把 6 張手牌都放入位置 1～6。";
+    return;
+  }
+
+  const code = currentRoom.code;
+  const requestId = nextRoomRequestId();
+  roomMessage.textContent = "";
+  setBusy("arrange", true);
+
+  try {
+    const payload = await arrangeCardsRequest(code, playerId, cardIds);
+    renderRoom(payload.room, requestId);
+  } catch (error) {
+    roomMessage.textContent = error.message;
+  } finally {
+    setBusy("arrange", false);
+  }
+}
+
+async function rollTurn() {
+  if (!currentRoom || pendingAction) {
+    return;
+  }
+
+  const code = currentRoom.code;
+  const requestId = nextRoomRequestId();
+  roomMessage.textContent = "";
+  setBusy("roll", true);
+
+  try {
+    const payload = await rollTurnRequest(code, playerId);
+    renderRoom(payload.room, requestId);
+    if (payload.turn) {
+      const playerName = getPlayerNameById(payload.turn.playerId, payload.room);
+      roomMessage.textContent = `${playerName} 擲出 ${payload.turn.diceResult}，翻開位置 ${payload.turn.position}。`;
+    }
+  } catch (error) {
+    roomMessage.textContent = error.message;
+  } finally {
+    setBusy("roll", false);
+  }
+}
+
+function enterRoom(room, requestId) {
+  renderRoom(room, requestId);
   history.replaceState(null, "", `#room=${room.code}`);
   lobbyView.classList.add("hidden");
   roomView.classList.remove("hidden");
@@ -187,61 +293,61 @@ function showLobby() {
   roomView.classList.add("hidden");
   lobbyMessage.textContent = "";
   roomMessage.textContent = "";
+  resetArrangement();
 }
 
-function renderRoom(room) {
+function renderRoom(room, requestId = nextRoomRequestId()) {
+  const rendered = renderRoomView(room, {
+    elements,
+    playerId,
+    handSize,
+    pendingAction,
+    arrangement,
+    currentRoom: room,
+    requestId,
+    appliedRoomRequestId,
+    callbacks: {
+      resetArrangement,
+      syncArrangement,
+      removeArrangementAt,
+      placeCardInFirstSlot
+    }
+  });
+
+  if (!rendered) {
+    return;
+  }
+
+  appliedRoomRequestId = requestId;
   currentRoom = room;
-  copyCodeButton.textContent = room.code;
-  roomStatus.textContent = room.status === "playing" ? "遊戲已開始" : "等待玩家";
-  playerCount.textContent = `${room.players.length} / 4`;
-  startGameButton.disabled = room.hostId !== playerId || room.status !== "waiting";
-  startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
-  playerList.replaceChildren(
-    ...room.players.map((player) => {
-      const item = document.createElement("li");
-      item.className = "player-item";
-
-      const name = document.createElement("span");
-      name.textContent = player.id === playerId ? `${player.name}（你）` : player.name;
-      item.append(name);
-
-      if (player.isHost) {
-        const badge = document.createElement("span");
-        badge.className = "host-badge";
-        badge.textContent = "房主";
-        item.append(badge);
-      }
-
-      return item;
-    })
-  );
 }
 
 function startRoomPolling(code) {
   stopRoomPolling();
   activePollingCode = code;
-  pollRoomOnce(code);
+  pollRoomOnce(code, { force: true });
   roomPoll = window.setInterval(() => pollRoomOnce(code), pollingMs);
 }
 
-async function pollRoomOnce(code) {
-  if (pollInFlight || activePollingCode !== code) {
+async function pollRoomOnce(code, { force = false } = {}) {
+  if ((!force && pollInFlight) || activePollingCode !== code) {
     return;
   }
 
   pollInFlight = true;
   const controller = new AbortController();
   pollAbortController = controller;
+  const requestId = nextRoomRequestId();
 
   try {
-    const payload = await requestJson(`/api/rooms/${code}`, {
+    const payload = await fetchRoom(code, playerId, {
       signal: controller.signal
     });
     if (controller.signal.aborted || activePollingCode !== code) {
       return;
     }
 
-    renderRoom(payload.room);
+    renderRoom(payload.room, requestId);
     if (roomMessage.textContent === "同步中斷，正在重試。") {
       roomMessage.textContent = "";
     }
@@ -287,13 +393,14 @@ async function restoreFromHash() {
   }
 
   const code = match[1];
+  const roomRequestId = nextRoomRequestId();
 
   try {
-    const payload = await requestJson(`/api/rooms/${code}`);
+    const payload = await fetchRoom(code, playerId);
     if (requestId !== restoreRequestId || location.hash !== `#room=${code}`) {
       return;
     }
-    enterRoom(payload.room);
+    enterRoom(payload.room, roomRequestId);
   } catch {
     if (requestId !== restoreRequestId) {
       return;
@@ -301,5 +408,43 @@ async function restoreFromHash() {
     history.replaceState(null, "", location.pathname);
     showLobby();
     lobbyMessage.textContent = "找不到房間，請確認房號。";
+  }
+}
+
+function setBusy(action, busy) {
+  pendingAction = busy ? action : "";
+  createRoomButton.disabled = Boolean(pendingAction);
+  joinRoomButton.disabled = Boolean(pendingAction);
+
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
+}
+
+function syncArrangement(hand) {
+  const signature = hand.map((card) => card.instanceId || card.id || "").join("|");
+  if (signature !== arrangementHandSignature) {
+    arrangement.splice(0, arrangement.length, ...Array(handSize).fill(null));
+    arrangementHandSignature = signature;
+  }
+}
+
+function resetArrangement() {
+  arrangement.splice(0, arrangement.length, ...Array(handSize).fill(null));
+  arrangementHandSignature = "";
+}
+
+function removeArrangementAt(index) {
+  arrangement[index] = null;
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
+}
+
+function placeCardInFirstSlot(card) {
+  const emptyIndex = arrangement.findIndex((slotCard) => !slotCard);
+  if (emptyIndex !== -1) {
+    arrangement[emptyIndex] = card;
+    renderRoom(currentRoom, appliedRoomRequestId);
   }
 }

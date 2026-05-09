@@ -18,9 +18,9 @@
           </div>
         </div>
         <div>
-          <p class="eyebrow">Online Lobby MVP</p>
+          <p class="eyebrow">Online Room</p>
           <h1>Dice Card Game</h1>
-          <p class="intro">建立房間、分享房號、等朋友加入，先把線上遊戲最重要的入口跑起來。</p>
+          <p class="intro">建立房間、邀請玩家，從等待室一路完成排牌、擲骰、翻牌與結算。</p>
         </div>
       </section>
 
@@ -53,7 +53,7 @@
       <section class="room-panel hidden" id="roomView">
         <div class="room-topbar">
           <div>
-            <p class="eyebrow">Waiting Room</p>
+            <p class="eyebrow">Room</p>
             <h2>房間 <button id="copyCodeButton" class="code-button" type="button"></button></h2>
           </div>
           <button id="leaveRoomButton" class="ghost-button" type="button">離開</button>
@@ -67,6 +67,52 @@
         <ul class="player-list" id="playerList"></ul>
 
         <button id="startGameButton" class="primary-button full-width" type="button">開始遊戲</button>
+
+        <section class="game-panel hidden" id="gamePanel" aria-label="遊戲畫面">
+          <div class="game-heading">
+            <div>
+              <p class="eyebrow">Game</p>
+              <h3 id="gamePhaseTitle">等待開始</h3>
+            </div>
+            <div class="turn-pill" id="turnIndicator">尚未開始</div>
+          </div>
+
+          <div class="dice-result" id="diceResult">骰子結果：尚無</div>
+
+          <div class="game-section hidden" id="arrangePanel">
+            <div class="section-heading">
+              <h4>排列手牌</h4>
+              <p id="arrangeHint">點選手牌放入位置 1～6。</p>
+            </div>
+            <div class="slot-grid" id="arrangeSlots"></div>
+            <div class="hand-grid" id="handCards"></div>
+            <button id="submitArrangeButton" class="primary-button full-width" type="button">送出排列</button>
+          </div>
+
+          <div class="game-section hidden" id="turnPanel">
+            <div class="section-heading">
+              <h4>卡牌位置</h4>
+              <p id="turnHint">輪到你時擲骰並翻開對應位置。</p>
+            </div>
+            <div class="slot-grid board-grid" id="boardCards"></div>
+            <button id="rollButton" class="primary-button full-width" type="button">擲骰 / 執行回合</button>
+          </div>
+
+          <div class="game-section">
+            <div class="section-heading">
+              <h4>分數與狀態</h4>
+            </div>
+            <ul class="score-list" id="scoreList"></ul>
+          </div>
+
+          <div class="game-section hidden" id="finishedPanel">
+            <div class="section-heading">
+              <h4>遊戲結束</h4>
+              <p id="winnerText"></p>
+            </div>
+          </div>
+        </section>
+
         <p class="message" id="roomMessage" role="status"></p>
       </section>
     </main>
