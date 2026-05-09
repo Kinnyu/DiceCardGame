@@ -1,4 +1,5 @@
 import handler from "../api/rooms.js";
+import { createGameState, publicGameState } from "../lib/game-state.js";
 import { handleRoomApi } from "../lib/room-api.js";
 import { createMemoryStore } from "../lib/stores.js";
 
@@ -10,6 +11,7 @@ const savedEnv = {
 };
 
 try {
+  testGameStatePublicProjection();
   await testMemoryFallback();
   await testControllerAndVercelHandlerStayAligned();
   await testMissingRoom();
@@ -36,6 +38,7 @@ async function testMemoryFallback() {
   const started = await callHandler("POST", `${code}/start`, { playerId: "one" });
   assert(started.statusCode === 200, "host should start the game");
   assert(started.payload.room.status === "playing", "room status should be playing");
+  assertPublicGameShape(started.payload.room.game, "started room should include public game state");
 
   const left = await callHandler("POST", `${code}/leave`, { playerId: "two" });
   assert(left.statusCode === 200, "leave should return ok");
@@ -43,6 +46,62 @@ async function testMemoryFallback() {
   const afterLeave = await callHandler("GET", code);
   assert(afterLeave.statusCode === 200, "room should remain after one player leaves");
   assert(afterLeave.payload.room.players.length === 1, "leave should remove the second player");
+  assertPublicGameShape(afterLeave.payload.room.game, "playing game state should keep the start snapshot");
+  assert(afterLeave.payload.room.game.players.length === 2, "playing game state keeps start-time player snapshot");
+}
+
+function testGameStatePublicProjection() {
+  const game = createGameState([
+    { id: "one", name: "AA" },
+    { id: "two", name: "BBB" }
+  ]);
+  const player = game.players[0];
+  player.hand = [
+    { id: "hand-1", type: "secret", value: 7, effect: "debug-private", faceUp: false },
+    "raw-hand-debug"
+  ];
+  player.arrangedCards = [
+    { id: "hidden-1", position: 0, type: "attack", value: 4, effect: "hidden-effect", faceUp: false },
+    { id: "up-1", position: 1, type: "guard", value: 2, effect: "visible-effect", faceUp: true },
+    "raw-arranged-debug"
+  ];
+  player.receivedCards = [
+    { id: "revealed-1", position: 2, type: "gift", value: 5, effect: "revealed-effect", revealed: true },
+    13,
+    null
+  ];
+
+  const view = publicGameState(game);
+  const parsed = JSON.parse(JSON.stringify(view));
+  assert(parsed.phase === view.phase, "public game state should be JSON serializable");
+
+  const publicPlayer = view.players[0];
+  assert(!Object.hasOwn(publicPlayer, "hand"), "public player should not expose private hand");
+  assert(publicPlayer.handCount === 2, "public player should expose only hand count");
+
+  const hiddenCard = publicPlayer.arrangedCards[0];
+  assert(hiddenCard.id === "hidden-1", "hidden card should keep public id");
+  assert(hiddenCard.position === 0, "hidden card should keep public position");
+  assert(hiddenCard.faceUp === false, "hidden card should keep faceUp flag");
+  assert(!Object.hasOwn(hiddenCard, "type"), "hidden card should not expose type");
+  assert(!Object.hasOwn(hiddenCard, "value"), "hidden card should not expose value");
+  assert(!Object.hasOwn(hiddenCard, "effect"), "hidden card should not expose effect");
+
+  const faceUpCard = publicPlayer.arrangedCards[1];
+  assert(faceUpCard.type === "guard", "face-up card should expose type");
+  assert(faceUpCard.value === 2, "face-up card should expose value");
+  assert(faceUpCard.effect === "visible-effect", "face-up card should expose effect");
+
+  const invalidArrangedCard = publicPlayer.arrangedCards[2];
+  assert(invalidArrangedCard === null, "primitive arranged card should not leak raw value");
+
+  const revealedCard = publicPlayer.receivedCards[0];
+  assert(revealedCard.faceUp === true, "revealed card should be public faceUp");
+  assert(revealedCard.type === "gift", "revealed card should expose type");
+  assert(revealedCard.value === 5, "revealed card should expose value");
+  assert(revealedCard.effect === "revealed-effect", "revealed card should expose effect");
+  assert(publicPlayer.receivedCards[1] === null, "primitive received card should not leak raw value");
+  assert(publicPlayer.receivedCards[2] === null, "null received card should stay safe");
 }
 
 async function testControllerAndVercelHandlerStayAligned() {
@@ -164,6 +223,32 @@ function assertSameRoomState(left, right, message) {
 function assertShapeMatches(leftRoom, rightRoom, message) {
   assert(Boolean(leftRoom.code) === Boolean(rightRoom.code), `${message}: code presence`);
   assert(Array.isArray(leftRoom.players) && Array.isArray(rightRoom.players), `${message}: players`);
+  assert(Boolean(leftRoom.game) === Boolean(rightRoom.game), `${message}: game presence`);
+  if (leftRoom.game || rightRoom.game) {
+    assertPublicGameShape(leftRoom.game, `${message}: left game`);
+    assertPublicGameShape(rightRoom.game, `${message}: right game`);
+  }
+}
+
+function assertPublicGameShape(game, message) {
+  assert(game, `${message}: game presence`);
+  assert(game.phase === "setup", `${message}: setup phase`);
+  assert(game.direction === "clockwise", `${message}: direction`);
+  assert(game.dice.lastRoll === null, `${message}: dice last roll`);
+  assert(Array.isArray(game.players), `${message}: game players`);
+  assert(Array.isArray(game.winnerIds), `${message}: winners`);
+  assert(Array.isArray(game.log), `${message}: log`);
+  assert(JSON.parse(JSON.stringify(game)).phase === game.phase, `${message}: JSON serializable`);
+
+  const player = game.players[0];
+  assert(player.score === 10, `${message}: initial score`);
+  assert(player.eliminated === false, `${message}: eliminated flag`);
+  assert(player.deckCount === 0, `${message}: deck count`);
+  assert(player.handCount === 0, `${message}: public hand count`);
+  assert(!Object.hasOwn(player, "hand"), `${message}: public view should not expose hand`);
+  assert(Array.isArray(player.arrangedCards), `${message}: arranged cards`);
+  assert(Array.isArray(player.receivedCards), `${message}: received cards`);
+  assert(Array.isArray(player.usedPositions), `${message}: used positions`);
 }
 
 function restoreEnv() {
