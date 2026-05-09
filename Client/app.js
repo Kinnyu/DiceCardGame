@@ -77,7 +77,7 @@ async function createRoom() {
   const name = getPlayerName();
 
   if (!name) {
-    lobbyMessage.textContent = "先輸入暱稱，再建立房間。";
+    lobbyMessage.textContent = "請先輸入暱稱，再建立房間。";
     nameInput.focus();
     return;
   }
@@ -99,7 +99,7 @@ async function joinRoom() {
   const code = roomCodeInput.value.trim().toUpperCase();
 
   if (!name) {
-    lobbyMessage.textContent = "先輸入暱稱，再加入房間。";
+    lobbyMessage.textContent = "請先輸入暱稱，再加入房間。";
     nameInput.focus();
     return;
   }
@@ -195,7 +195,7 @@ function renderRoom(room) {
   roomStatus.textContent = room.status === "playing" ? "遊戲已開始" : "等待玩家";
   playerCount.textContent = `${room.players.length} / 4`;
   startGameButton.disabled = room.hostId !== playerId || room.status !== "waiting";
-  startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
+  startGameButton.textContent = room.status === "playing" ? "遊戲已開始" : "開始遊戲";
   playerList.replaceChildren(
     ...room.players.map((player) => {
       const item = document.createElement("li");
