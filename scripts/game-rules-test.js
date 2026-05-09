@@ -1,33 +1,63 @@
-import { cloneCard, createDeck, createGameDeck, HAND_SIZE, shuffleDeck } from "../lib/cards.js";
+import { CARD_DEFINITIONS, cloneCard, createDeck, createGameDeck, drawCards, HAND_SIZE, shuffleDeck } from "../lib/cards.js";
 import { rollDie } from "../lib/dice.js";
 import { createGameState, GAME_PHASE_SETUP, INITIAL_SCORE } from "../lib/game-state.js";
 import {
+  applyCardEffect,
   arrangePlayerCards,
   dealInitialHands,
+  determineWinnerIds,
   gameRuleErrors,
   GAME_PHASE_ARRANGING,
   GAME_PHASE_FINISHED,
   GAME_PHASE_PLAYING,
   passArrangedCardsRight,
+  revealCardAtDiceResult,
   revealCardAtPosition,
-  updatePlayerScore,
-  applyCardEffect
+  resolveGameEnd,
+  updatePlayerScore
 } from "../lib/game-rules.js";
 
+testCardDefinitionsDeckAndDraw();
 testSafeRandomRolls();
 testSafeRandomShuffle();
+testDealInitialHandsDealsFullHandsAndAdvances();
 testDealRequiresSetupPhaseWithoutMutating();
+testDealRequiresEnoughCardsWithoutMutatingPhase();
+testArrangePlayerCardsOrdersPositionsAndClearsHand();
 testPassRequiresArrangingAndReadyPlayers();
 testArrangeRejectsDuplicatePhysicalCardsWithoutMutating();
 testArrangeRequiresArrangingPhaseWithoutMutating();
+testPassRightAssignsReceivedHandsAndStartsTurn();
 testPassUsesActivePlayerRingOnly();
 testPassRejectsZeroActivePlayersWithoutMutatingPhase();
+testRevealDiceScoreAndTurn();
 testRevealRequiresPlayingAndTurnPlayer();
-testDealRequiresEnoughCardsWithoutMutatingPhase();
+testEliminationFinishesGameWithRemainingWinner();
+testAllPositionsUsedFinishesGameAndDeterminesTie();
 testInvalidScoreNumbersStayFinite();
 testCloneCardKeepsPublicEffectField();
 
 console.log("Game rules test passed.");
+
+function testCardDefinitionsDeckAndDraw() {
+  assert(CARD_DEFINITIONS.length > 0, "card definitions should contain at least one card");
+  assert(CARD_DEFINITIONS[0].type === "score", "default card should be a score card");
+
+  const deck = createDeck([{ id: "gain", name: "Gain", type: "score", value: 2, effect: "gain 2" }], 3);
+  assert(deck.length === 3, "createDeck should create the requested number of copies");
+  assert(new Set(deck.map((card) => card.instanceId)).size === 3, "deck cards should have unique instance ids");
+  assert(deck.every((card) => card.effect === "gain 2"), "deck cards should keep effect text");
+
+  const result = drawCards(deck, 2);
+  assert(result.drawn.length === 2, "drawCards should draw the requested count");
+  assert(result.deck.length === 1, "drawCards should return the remaining deck");
+  assert(result.drawn[0] !== deck[0], "drawCards should clone drawn cards");
+  assert(result.deck[0] !== deck[2], "drawCards should clone remaining cards");
+
+  const overdraw = drawCards(deck, 99);
+  assert(overdraw.drawn.length === deck.length, "drawCards should clamp overdraw to deck length");
+  assert(overdraw.deck.length === 0, "overdraw should leave an empty deck");
+}
 
 function testSafeRandomRolls() {
   assert(rollDie(() => 1) === 6, "random value 1 should clamp to die face 6");
@@ -43,6 +73,26 @@ function testSafeRandomShuffle() {
   assert(shuffled.length === deck.length, "shuffle should keep deck length");
   assert(shuffled.every(Boolean), "shuffle should not create undefined cards");
   assert(deck.every(Boolean), "shuffle should not break the original deck");
+}
+
+function testDealInitialHandsDealsFullHandsAndAdvances() {
+  const game = createGameState([
+    { id: "a", name: "A" },
+    { id: "b", name: "B" }
+  ]);
+  const deck = createGameDeck(game.players.length, { random: () => 0 });
+
+  const result = dealInitialHands(game, deck);
+
+  assert(!result.error, "dealInitialHands should deal in setup phase");
+  assert(game.phase === GAME_PHASE_ARRANGING, "dealInitialHands should advance to arranging phase");
+  assert(result.deck.length === 0, "dealInitialHands should consume the exact game deck");
+  assert(game.players.every((player) => player.hand.length === HAND_SIZE), "each player should receive a full hand");
+  assert(
+    game.players.every((player) => player.hand.every((card) => card.faceUp === false && card.revealed === false)),
+    "dealt cards should start hidden"
+  );
+  assert(game.players.every((player) => player.deckCount === 0), "dealInitialHands should reset deck count");
 }
 
 function testPassRequiresArrangingAndReadyPlayers() {
@@ -73,6 +123,26 @@ function testDealRequiresSetupPhaseWithoutMutating() {
   assert(game.phase === GAME_PHASE_PLAYING, "failed phase deal should not change phase");
   assert(game.players[0].hand[0]?.instanceId === "kept-card", "failed phase deal should not replace hand");
   assert(deck.length === HAND_SIZE * game.players.length, "failed phase deal should not consume deck");
+}
+
+function testArrangePlayerCardsOrdersPositionsAndClearsHand() {
+  const game = createPreparedGame();
+  const player = game.players[0];
+  const orderedIds = player.hand.map((card) => card.instanceId).reverse();
+
+  const result = arrangePlayerCards(game, player.id, orderedIds);
+
+  assert(!result.error, "arrangePlayerCards should accept every physical hand card once");
+  assert(player.hand.length === 0, "arrangePlayerCards should clear the private hand");
+  assert(player.arrangedCards.length === HAND_SIZE, "arrangePlayerCards should place a full row");
+  assert(
+    player.arrangedCards.map((card) => card.instanceId).join(",") === orderedIds.join(","),
+    "arranged cards should preserve requested order"
+  );
+  assert(
+    player.arrangedCards.every((card, index) => card.position === index + 1),
+    "arranged cards should receive one-based positions"
+  );
 }
 
 function testArrangeRejectsDuplicatePhysicalCardsWithoutMutating() {
@@ -139,6 +209,29 @@ function testArrangeRequiresArrangingPhaseWithoutMutating() {
   assert(player.arrangedCards[0]?.instanceId === "existing-card", "failed phase arrange should keep arranged cards");
 }
 
+function testPassRightAssignsReceivedHandsAndStartsTurn() {
+  const game = createGameState([
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" }
+  ]);
+  game.phase = GAME_PHASE_ARRANGING;
+  game.players[0].arrangedCards = makePositionedCards("a");
+  game.players[1].arrangedCards = makePositionedCards("b");
+  game.players[2].arrangedCards = makePositionedCards("c");
+
+  const result = passArrangedCardsRight(game);
+
+  assert(!result.error, "passArrangedCardsRight should pass ready cards");
+  assert(game.phase === GAME_PHASE_PLAYING, "passing should advance to playing phase");
+  assert(game.firstPlayerId === "a", "first active player should be recorded");
+  assert(game.turnPlayerId === "a", "first active player should take the first turn");
+  assert(game.players[0].receivedCards.every((card) => card.instanceId.startsWith("c-")), "A should receive C cards");
+  assert(game.players[1].receivedCards.every((card) => card.instanceId.startsWith("a-")), "B should receive A cards");
+  assert(game.players[2].receivedCards.every((card) => card.instanceId.startsWith("b-")), "C should receive B cards");
+  assert(game.players.every((player) => player.arrangedCards.length === 0), "passing should clear arranged cards");
+}
+
 function testPassUsesActivePlayerRingOnly() {
   const game = createGameState([
     { id: "a", name: "A" },
@@ -180,6 +273,30 @@ function testPassRejectsZeroActivePlayersWithoutMutatingPhase() {
   assert(game.phase === GAME_PHASE_ARRANGING, "zero active players should not advance phase");
 }
 
+function testRevealDiceScoreAndTurn() {
+  const game = createReadyPassedGame();
+  const player = game.players[0];
+  const nextPlayer = game.players[1];
+  const startingScore = player.score;
+  const targetCard = player.receivedCards.find((card) => card.position === 1);
+
+  const result = revealCardAtDiceResult(game, player.id, 1);
+
+  assert(!result.error, "valid dice result should reveal a card");
+  assert(result.card === targetCard, "reveal should return the card at the dice position");
+  assert(targetCard.faceUp === true && targetCard.revealed === true, "revealed card should be face up");
+  assert(player.usedPositions.includes(1), "revealed position should be marked used");
+  assert(player.score === startingScore + targetCard.value, "score card should update player score");
+  assert(result.scoreDelta === targetCard.value, "reveal should report score delta");
+  assert(game.turnPlayerId === nextPlayer.id, "turn should advance after a non-finishing reveal");
+
+  const repeated = revealCardAtPosition(game, nextPlayer.id, 1);
+  assert(!repeated.error, "next player should be able to reveal the same position on their own board");
+
+  const invalidDice = revealCardAtDiceResult(game, game.turnPlayerId, 7);
+  assert(invalidDice.error === "invalidDiceResult", "invalid dice result should be rejected");
+}
+
 function testRevealRequiresPlayingAndTurnPlayer() {
   const game = createReadyPassedGame();
   game.phase = GAME_PHASE_ARRANGING;
@@ -203,6 +320,49 @@ function testDealRequiresEnoughCardsWithoutMutatingPhase() {
   assert(result.error === gameRuleErrors.deckTooSmall, "short deck should return a clear error");
   assert(game.phase === originalPhase, "short deck should not advance phase");
   assert(game.players.every((player) => player.hand.length === 0), "short deck should not partially deal hands");
+}
+
+function testEliminationFinishesGameWithRemainingWinner() {
+  const game = createGameState([
+    { id: "a", name: "A" },
+    { id: "b", name: "B" }
+  ]);
+  const [player, winner] = game.players;
+  game.phase = GAME_PHASE_PLAYING;
+  game.turnPlayerId = player.id;
+  player.score = 1;
+  player.receivedCards = [
+    { id: "drop", instanceId: "drop-1", type: "score", value: -2, position: 1, faceUp: false, revealed: false }
+  ];
+  winner.receivedCards = makePositionedCards("winner");
+
+  const result = revealCardAtPosition(game, player.id, 1);
+
+  assert(!result.error, "negative score card should reveal");
+  assert(result.eliminated === true, "score at or below zero should eliminate player");
+  assert(player.score === 0, "eliminated player's score should clamp to zero");
+  assert(game.phase === GAME_PHASE_FINISHED, "single remaining active player should finish the game");
+  assert(result.finished === true, "reveal result should report finished game");
+  assert(result.winnerIds.length === 1 && result.winnerIds[0] === winner.id, "remaining active player should win");
+}
+
+function testAllPositionsUsedFinishesGameAndDeterminesTie() {
+  const game = createGameState([
+    { id: "a", name: "A" },
+    { id: "b", name: "B" }
+  ]);
+  game.phase = GAME_PHASE_PLAYING;
+  game.players[0].usedPositions = [1, 2, 3, 4, 5, 6];
+  game.players[1].usedPositions = [1, 2, 3, 4, 5, 6];
+  game.players[0].score = 12;
+  game.players[1].score = 12;
+
+  const result = resolveGameEnd(game);
+
+  assert(result.finished === true, "all active players using all positions should finish the game");
+  assert(game.phase === GAME_PHASE_FINISHED, "finished game should enter finished phase");
+  assert(result.winnerIds.join(",") === "a,b", "equal best scores should produce tied winners");
+  assert(determineWinnerIds(game).join(",") === "a,b", "winner determination should preserve ties");
 }
 
 function testInvalidScoreNumbersStayFinite() {
