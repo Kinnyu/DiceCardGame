@@ -49,7 +49,7 @@ function readBody(req) {
 }
 
 async function handleApi(req, res, url) {
-  const body = req.method === "GET" ? {} : await readBody(req);
+  const body = req.method === "GET" ? { playerId: url.searchParams.get("playerId") || "" } : await readBody(req);
   const path = url.pathname === "/api/rooms" ? [] : url.pathname.replace(/^\/api\/rooms\/?/, "").split("/");
   const result = await handleRoomApi({
     method: req.method,

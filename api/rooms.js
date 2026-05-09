@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const result = await handleRoomApi({
       method: req.method,
       path: getPath(req),
-      body: req.body || {},
+      body: getBody(req),
       store
     });
 
@@ -18,6 +18,16 @@ export default async function handler(req, res) {
   } catch (error) {
     sendJson(res, 500, { error: error.message || "Server error" });
   }
+}
+
+function getBody(req) {
+  if (req.method !== "GET") {
+    return req.body || {};
+  }
+
+  return {
+    playerId: req.query?.playerId || ""
+  };
 }
 
 export function createVercelStore() {

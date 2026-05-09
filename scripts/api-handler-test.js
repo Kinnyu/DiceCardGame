@@ -16,6 +16,8 @@ try {
   await testMemoryFallback();
   await testStartCreatesPrivateGameStateInStore();
   await testStartGuards();
+  await testGameFlowApi();
+  await testHandlerGetPassesPlayerIdQuery();
   await testControllerAndVercelHandlerStayAligned();
   await testMissingRoom();
   await testExtraPathSegmentsReturn404();
@@ -111,6 +113,119 @@ async function testStartGuards() {
     playerId: "solo"
   });
   assert(shortStart.statusCode === 400, "room with fewer than two players should not start");
+}
+
+async function testGameFlowApi() {
+  const rooms = new Map();
+  const store = createMemoryStore(rooms);
+  const created = await callController(store, "POST", "", { playerId: "one", name: "AA" });
+  const code = created.payload.room.code;
+
+  await callController(store, "POST", `${code}/join`, { playerId: "two", name: "BBB" });
+
+  const arrangeBeforeStart = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "one",
+    cardIds: []
+  });
+  assert(arrangeBeforeStart.statusCode === 409, "arrange before start should be rejected");
+
+  await callController(store, "POST", `${code}/start`, { playerId: "one" });
+
+  const oneView = await callController(store, "GET", code, { playerId: "one" });
+  assert(oneView.statusCode === 200, "player should fetch room after start");
+  assert(oneView.payload.room.game.phase === "arranging", "player-scoped game view should include arranging phase");
+  assert(Array.isArray(oneView.payload.room.game.players), "player-scoped game view should include players");
+
+  const onePublic = oneView.payload.room.game.players.find((player) => player.id === "one");
+  const twoPublic = oneView.payload.room.game.players.find((player) => player.id === "two");
+  assert(onePublic.hand.length === HAND_SIZE, "current player should see their own hand");
+  assert(!Object.hasOwn(twoPublic, "hand"), "current player should not see another player's hand");
+
+  const oneCardIds = onePublic.hand.map((card) => card.instanceId);
+  const wrongOwnerArrange = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "two",
+    cardIds: oneCardIds
+  });
+  assert(wrongOwnerArrange.statusCode === 400, "player should not arrange cards from another hand");
+
+  const oneArranged = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "one",
+    cardIds: oneCardIds
+  });
+  assert(oneArranged.statusCode === 200, "first player should arrange");
+  assert(oneArranged.payload.room.game.phase === "arranging", "game should wait for all arrangements");
+
+  const repeatArrange = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "one",
+    cardIds: oneCardIds
+  });
+  assert(repeatArrange.statusCode === 409, "arranged player should not arrange again");
+
+  const twoView = await callController(store, "GET", code, { playerId: "two" });
+  const twoCardIds = twoView.payload.room.game.players.find((player) => player.id === "two").hand.map((card) => card.instanceId);
+  const twoArranged = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "two",
+    cardIds: twoCardIds
+  });
+  assert(twoArranged.statusCode === 200, "second player should arrange");
+  assert(twoArranged.payload.room.game.phase === "playing", "all arrangements should advance to turns");
+  assert(twoArranged.payload.room.game.turnPlayerId === "one", "first active player should start turns");
+
+  const hiddenReceivedCard = twoArranged.payload.room.game.players[0].receivedCards[0];
+  assert(hiddenReceivedCard.faceUp === false, "unrevealed received card should be face down");
+  assert(!Object.hasOwn(hiddenReceivedCard, "type"), "unrevealed received card should not leak type");
+  assert(!Object.hasOwn(hiddenReceivedCard, "value"), "unrevealed received card should not leak value");
+  assert(!Object.hasOwn(hiddenReceivedCard, "effect"), "unrevealed received card should not leak effect");
+
+  const wrongTurn = await callController(store, "POST", `${code}/roll`, { playerId: "two" }, () => 0);
+  assert(wrongTurn.statusCode === 409, "non-current player should not roll");
+
+  const firstRoll = await callController(store, "POST", `${code}/roll`, { playerId: "one" }, () => 0);
+  assert(firstRoll.statusCode === 200, "current player should roll");
+  assert(firstRoll.payload.turn.diceResult === 1, "roll should use server-generated dice");
+  const revealedCard = firstRoll.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  assert(revealedCard.faceUp === true, "revealed card should be face up in public view");
+  assert(revealedCard.type === "score", "revealed card should expose type");
+  assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value");
+  assert(Object.hasOwn(revealedCard, "effect"), "revealed card should expose effect");
+
+  const repeatedPosition = await callController(store, "POST", `${code}/turn`, { playerId: "two" }, () => 0);
+  assert(repeatedPosition.statusCode === 200, "other player can use the same position on their own board");
+  const usedAgain = await callController(store, "POST", `${code}/roll`, { playerId: "one" }, () => 0);
+  assert(usedAgain.statusCode === 409, "used position should not trigger again for the same player");
+
+  const finishRandom = makeRandomSequence([0.2, 0.2, 0.4, 0.4, 0.6, 0.6, 0.8, 0.8, 0.99, 0.99]);
+  for (let index = 0; index < 10; index += 1) {
+    const playerId = index % 2 === 0 ? "one" : "two";
+    const result = await callController(store, "POST", `${code}/roll`, { playerId }, finishRandom);
+    assert(result.statusCode === 200, "remaining valid rolls should finish the game");
+  }
+
+  const finishedRoom = rooms.get(code);
+  assert(finishedRoom.game.phase === "finished", "game should finish after all positions are used");
+
+  const afterFinished = await callController(store, "POST", `${code}/roll`, { playerId: "one" }, () => 0);
+  assert(afterFinished.statusCode === 409, "finished game should reject further turns");
+}
+
+async function testHandlerGetPassesPlayerIdQuery() {
+  useDevMemoryEnv();
+  globalThis.__diceCardRooms?.clear();
+
+  const created = await callHandler("POST", "", { playerId: "one", name: "AA" });
+  const code = created.payload.room.code;
+
+  await callHandler("POST", `${code}/join`, { playerId: "two", name: "BBB" });
+  await callHandler("POST", `${code}/start`, { playerId: "one" });
+
+  const oneView = await callHandler("GET", code, {}, { playerId: "one" });
+  assert(oneView.statusCode === 200, "handler GET with playerId query should succeed");
+
+  const onePublic = oneView.payload.room.game.players.find((player) => player.id === "one");
+  const twoPublic = oneView.payload.room.game.players.find((player) => player.id === "two");
+
+  assert(onePublic.hand.length === HAND_SIZE, "handler GET should expose current player's hand");
+  assert(!Object.hasOwn(twoPublic, "hand"), "handler GET should not expose another player's hand");
 }
 
 function testGameStatePublicProjection() {
@@ -243,20 +358,21 @@ function useDevMemoryEnv() {
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
 }
 
-async function callController(store, method, path, body = {}) {
+async function callController(store, method, path, body = {}, random = Math.random) {
   const result = await handleRoomApi({
     method,
     path,
     body,
-    store
+    store,
+    random
   });
   return { statusCode: result.status, payload: result.payload };
 }
 
-async function callHandler(method, path, body = {}) {
+async function callHandler(method, path, body = {}, query = {}) {
   let statusCode = 0;
   let payload = null;
-  const req = { method, query: { path }, body };
+  const req = { method, query: { path, ...query }, body };
   const res = {
     status(code) {
       statusCode = code;
@@ -269,6 +385,11 @@ async function callHandler(method, path, body = {}) {
 
   await handler(req, res);
   return { statusCode, payload };
+}
+
+function makeRandomSequence(values) {
+  let index = 0;
+  return () => values[index++] ?? values.at(-1) ?? 0;
 }
 
 function assertSameRoomState(left, right, message) {
