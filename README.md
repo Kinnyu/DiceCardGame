@@ -1,55 +1,70 @@
 # Dice Card Game
 
-一個簡單的線上遊戲 MVP，目前先完成進房流程。
+Dice Card Game lobby MVP. The first playable slice supports room creation, room join, room leave, host-only start, and player list synchronization.
 
-## 功能
+## Features
 
-- 輸入暱稱
-- 建立房間並取得 5 碼房號
-- 用房號加入等待房
-- 房內即時顯示玩家列表
-- 房主可在至少 2 位玩家時開始遊戲
+- Enter a player nickname.
+- Create a room and get a 5-character room code.
+- Join a waiting room with a room code.
+- Poll the room API to keep the player list in sync.
+- Let the host start the game when at least two players are present.
 
-## 啟動
+## Local Development
 
 ```bash
 npm start
 ```
 
-打開瀏覽器到：
+Open:
 
 ```text
 http://localhost:3000
 ```
 
-## 目前架構
+The local development server uses in-memory room state and serves the static files from `Client/`.
 
-- `Server/server.js`：Node HTTP server、API、房間狀態、SSE 即時更新
-- `Client/index.html`：遊戲大廳與等待房畫面
-- `Client/app.js`：建立房間、加入房間、玩家列表同步
-- `Client/styles.css`：介面樣式
+## Project Structure
 
-這版沒有資料庫，房間資料會存在伺服器記憶體裡；重啟 server 後房間會清空。
+- `Client/`: browser UI for the lobby and waiting room.
+- `lib/rooms.js`: domain rules for room codes, players, host checks, and public room shape.
+- `lib/room-api.js`: shared API controller/workflow for create, get, join, leave, and start.
+- `lib/stores.js`: memory and Redis persistence adapters.
+- `Server/server.js`: local HTTP/static adapter.
+- `api/rooms.js`: Vercel Function adapter.
+- `scripts/`: checks and smoke tests.
 
-## 部署到 Vercel
+## Vercel Deployment
 
-這個專案已經有 `vercel.json` 和 `api/rooms.js`，可以部署到 Vercel。
+The project is deployable to Vercel with `vercel.json` and `api/rooms.js`.
 
-正式部署時建議在 Vercel Marketplace 加一個 Upstash Redis 或 Vercel KV 類型的 Redis 儲存，並設定：
+Production Vercel deployments must use Redis-compatible persistent storage. Configure these environment variables:
 
 ```text
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 ```
 
-如果沒有設定這兩個環境變數，API 會退回記憶體模式；這只適合本機或短暫測試，不適合正式線上房間。
+Without those variables, `api/rooms.js` only allows an in-memory fallback outside Vercel production. In Vercel production, the API returns a clear `503` error instead of pretending memory is a reliable multiplayer store.
+
+The MVP checks generated room-code collisions before saving; at high production traffic, room creation can be made fully atomic with Redis `SET NX`.
+
+Deploy:
 
 ```bash
 npx vercel
 ```
 
-部署到正式環境：
+Deploy to production:
 
 ```bash
 npx vercel --prod
+```
+
+## Checks
+
+```bash
+npm run check
+npm run test:smoke
+npm run test:api
 ```

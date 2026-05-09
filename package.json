@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node Server/server.js",
-    "dev": "node Server/server.js"
+    "dev": "node Server/server.js",
+    "check": "node --check lib/rooms.js && node --check lib/stores.js && node --check lib/room-api.js && node --check Server/server.js && node --check api/rooms.js && node --check Client/app.js && node --check scripts/smoke-test.js && node --check scripts/api-handler-test.js",
+    "test:smoke": "node scripts/smoke-test.js",
+    "test:api": "node scripts/api-handler-test.js"
   },
   "engines": {
     "node": ">=20"

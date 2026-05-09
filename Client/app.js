@@ -13,10 +13,16 @@ const playerList = document.querySelector("#playerList");
 const roomStatus = document.querySelector("#roomStatus");
 const playerCount = document.querySelector("#playerCount");
 
+const playerId = getOrCreatePlayerId();
+const pollingMs = 1200;
+
 let currentRoom = null;
 let roomPoll = null;
+let activePollingCode = null;
+let pollAbortController = null;
+let pollInFlight = false;
+let restoreRequestId = 0;
 
-const playerId = getOrCreatePlayerId();
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
 
 createRoomButton.addEventListener("click", createRoom);
@@ -55,10 +61,12 @@ async function requestJson(url, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options
   });
-  const payload = await response.json();
+  const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.error || "操作失敗，請再試一次。");
+    const error = new Error(payload.error || "操作失敗，請再試一次。");
+    error.status = response.status;
+    throw error;
   }
 
   return payload;
@@ -130,7 +138,7 @@ async function leaveRoom() {
       body: JSON.stringify({ playerId })
     });
   } catch {
-    roomMessage.textContent = "";
+    // The user has already returned to the lobby; a failed leave call does not need UI noise.
   }
 }
 
@@ -139,14 +147,17 @@ async function startGame() {
     return;
   }
 
+  const code = currentRoom.code;
   roomMessage.textContent = "";
 
   try {
-    const payload = await requestJson(`/api/rooms/${currentRoom.code}/start`, {
+    const payload = await requestJson(`/api/rooms/${code}/start`, {
       method: "POST",
       body: JSON.stringify({ playerId })
     });
-    renderRoom(payload.room);
+    if (currentRoom?.code === code) {
+      renderRoom(payload.room);
+    }
   } catch (error) {
     roomMessage.textContent = error.message;
   }
@@ -170,6 +181,8 @@ function enterRoom(room) {
 }
 
 function showLobby() {
+  stopRoomPolling();
+  currentRoom = null;
   lobbyView.classList.remove("hidden");
   roomView.classList.add("hidden");
   lobbyMessage.textContent = "";
@@ -206,17 +219,50 @@ function renderRoom(room) {
 
 function startRoomPolling(code) {
   stopRoomPolling();
-  roomPoll = window.setInterval(async () => {
-    try {
-      const payload = await requestJson(`/api/rooms/${code}`);
-      renderRoom(payload.room);
-      if (roomMessage.textContent === "同步中斷，正在重試。") {
-        roomMessage.textContent = "";
-      }
-    } catch {
-      roomMessage.textContent = "同步中斷，正在重試。";
+  activePollingCode = code;
+  pollRoomOnce(code);
+  roomPoll = window.setInterval(() => pollRoomOnce(code), pollingMs);
+}
+
+async function pollRoomOnce(code) {
+  if (pollInFlight || activePollingCode !== code) {
+    return;
+  }
+
+  pollInFlight = true;
+  const controller = new AbortController();
+  pollAbortController = controller;
+
+  try {
+    const payload = await requestJson(`/api/rooms/${code}`, {
+      signal: controller.signal
+    });
+    if (controller.signal.aborted || activePollingCode !== code) {
+      return;
     }
-  }, 1200);
+
+    renderRoom(payload.room);
+    if (roomMessage.textContent === "同步中斷，正在重試。") {
+      roomMessage.textContent = "";
+    }
+  } catch (error) {
+    if (error.name === "AbortError" || activePollingCode !== code) {
+      return;
+    }
+
+    if (error.status === 404) {
+      history.replaceState(null, "", location.pathname);
+      showLobby();
+      lobbyMessage.textContent = "房間已不存在，請重新建立或加入房間。";
+      return;
+    }
+    roomMessage.textContent = "同步中斷，正在重試。";
+  } finally {
+    if (pollAbortController === controller) {
+      pollAbortController = null;
+      pollInFlight = false;
+    }
+  }
 }
 
 function stopRoomPolling() {
@@ -224,20 +270,36 @@ function stopRoomPolling() {
     window.clearInterval(roomPoll);
     roomPoll = null;
   }
+  activePollingCode = null;
+  if (pollAbortController) {
+    pollAbortController.abort();
+    pollAbortController = null;
+  }
+  pollInFlight = false;
 }
 
 async function restoreFromHash() {
+  const requestId = ++restoreRequestId;
   const match = location.hash.match(/room=([A-Z0-9]+)/);
   if (!match) {
     showLobby();
     return;
   }
 
+  const code = match[1];
+
   try {
-    const payload = await requestJson(`/api/rooms/${match[1]}`);
+    const payload = await requestJson(`/api/rooms/${code}`);
+    if (requestId !== restoreRequestId || location.hash !== `#room=${code}`) {
+      return;
+    }
     enterRoom(payload.room);
   } catch {
+    if (requestId !== restoreRequestId) {
+      return;
+    }
     history.replaceState(null, "", location.pathname);
     showLobby();
+    lobbyMessage.textContent = "找不到房間，請確認房號。";
   }
 }
