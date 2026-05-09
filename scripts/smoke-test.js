@@ -26,6 +26,7 @@ try {
 
   const started = await post(`/api/rooms/${code}/start`, { playerId: "player-one" });
   assert(started.room.status === "playing", "host should be able to start the game");
+  assert(started.room.game?.phase === "arranging", "start should create an arranging game state");
 
   await post(`/api/rooms/${code}/leave`, { playerId: "player-two" });
   const afterLeave = await get(`/api/rooms/${code}`);

@@ -1,4 +1,5 @@
 import handler from "../api/rooms.js";
+import { HAND_SIZE } from "../lib/cards.js";
 import { createGameState, publicGameState } from "../lib/game-state.js";
 import { handleRoomApi } from "../lib/room-api.js";
 import { createMemoryStore } from "../lib/stores.js";
@@ -13,6 +14,8 @@ const savedEnv = {
 try {
   testGameStatePublicProjection();
   await testMemoryFallback();
+  await testStartCreatesPrivateGameStateInStore();
+  await testStartGuards();
   await testControllerAndVercelHandlerStayAligned();
   await testMissingRoom();
   await testExtraPathSegmentsReturn404();
@@ -39,6 +42,14 @@ async function testMemoryFallback() {
   assert(started.statusCode === 200, "host should start the game");
   assert(started.payload.room.status === "playing", "room status should be playing");
   assertPublicGameShape(started.payload.room.game, "started room should include public game state");
+  assert(started.payload.room.game.phase === "arranging", "started public game should enter arranging phase");
+  assert(
+    started.payload.room.game.players.every((player) => player.handCount === HAND_SIZE && !Object.hasOwn(player, "hand")),
+    "started public game should expose hand counts but not hands"
+  );
+
+  const rejectedJoin = await callHandler("POST", `${code}/join`, { playerId: "three", name: "CCC" });
+  assert(rejectedJoin.statusCode === 409, "join after start should still be rejected");
 
   const left = await callHandler("POST", `${code}/leave`, { playerId: "two" });
   assert(left.statusCode === 200, "leave should return ok");
@@ -48,6 +59,58 @@ async function testMemoryFallback() {
   assert(afterLeave.payload.room.players.length === 1, "leave should remove the second player");
   assertPublicGameShape(afterLeave.payload.room.game, "playing game state should keep the start snapshot");
   assert(afterLeave.payload.room.game.players.length === 2, "playing game state keeps start-time player snapshot");
+}
+
+async function testStartCreatesPrivateGameStateInStore() {
+  const rooms = new Map();
+  const store = createMemoryStore(rooms);
+  const created = await callController(store, "POST", "", { playerId: "one", name: "AA" });
+  const code = created.payload.room.code;
+
+  await callController(store, "POST", `${code}/join`, { playerId: "two", name: "BBB" });
+  const started = await callController(store, "POST", `${code}/start`, { playerId: "one" });
+
+  assert(started.statusCode === 200, "host start should succeed through controller");
+  assertPublicGameShape(started.payload.room.game, "controller start response should include safe public game");
+  assert(!Object.hasOwn(started.payload.room.game.players[0], "hand"), "start response should not expose private hand");
+
+  const storedRoom = rooms.get(code);
+  assert(storedRoom.status === "playing", "stored room status should be playing");
+  assert(storedRoom.game, "stored room should include private game state");
+  assert(storedRoom.game.phase === "arranging", "stored game should be ready for arrangement");
+  assert(storedRoom.game.players.length === 2, "stored game should use current room players");
+  assert(
+    storedRoom.game.players.every((player) => player.score === 10),
+    "stored game players should start at score 10"
+  );
+  assert(
+    storedRoom.game.players.every(
+      (player) =>
+        player.hand.length === HAND_SIZE &&
+        player.arrangedCards.length === 0 &&
+        player.receivedCards.length === 0 &&
+        player.usedPositions.length === 0
+    ),
+    "stored game players should have initial hand and arrangement fields"
+  );
+  assert(JSON.parse(JSON.stringify(storedRoom)).game.phase === "arranging", "stored room should be JSON serializable");
+}
+
+async function testStartGuards() {
+  const nonHostStore = createMemoryStore(new Map());
+  const nonHostCreated = await callController(nonHostStore, "POST", "", { playerId: "host", name: "Host" });
+  const nonHostCode = nonHostCreated.payload.room.code;
+  await callController(nonHostStore, "POST", `${nonHostCode}/join`, { playerId: "guest", name: "Guest" });
+
+  const nonHostStart = await callController(nonHostStore, "POST", `${nonHostCode}/start`, { playerId: "guest" });
+  assert(nonHostStart.statusCode === 403, "non-host should not start the game");
+
+  const shortStore = createMemoryStore(new Map());
+  const shortCreated = await callController(shortStore, "POST", "", { playerId: "solo", name: "Solo" });
+  const shortStart = await callController(shortStore, "POST", `${shortCreated.payload.room.code}/start`, {
+    playerId: "solo"
+  });
+  assert(shortStart.statusCode === 400, "room with fewer than two players should not start");
 }
 
 function testGameStatePublicProjection() {
@@ -232,7 +295,7 @@ function assertShapeMatches(leftRoom, rightRoom, message) {
 
 function assertPublicGameShape(game, message) {
   assert(game, `${message}: game presence`);
-  assert(game.phase === "setup", `${message}: setup phase`);
+  assert(game.phase === "arranging", `${message}: arranging phase`);
   assert(game.direction === "clockwise", `${message}: direction`);
   assert(game.dice.lastRoll === null, `${message}: dice last roll`);
   assert(Array.isArray(game.players), `${message}: game players`);
@@ -244,7 +307,7 @@ function assertPublicGameShape(game, message) {
   assert(player.score === 10, `${message}: initial score`);
   assert(player.eliminated === false, `${message}: eliminated flag`);
   assert(player.deckCount === 0, `${message}: deck count`);
-  assert(player.handCount === 0, `${message}: public hand count`);
+  assert(player.handCount === HAND_SIZE, `${message}: public hand count`);
   assert(!Object.hasOwn(player, "hand"), `${message}: public view should not expose hand`);
   assert(Array.isArray(player.arrangedCards), `${message}: arranged cards`);
   assert(Array.isArray(player.receivedCards), `${message}: received cards`);
