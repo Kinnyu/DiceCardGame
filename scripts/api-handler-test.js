@@ -1,6 +1,7 @@
 import handler from "../api/rooms.js";
 import { HAND_SIZE } from "../lib/cards.js";
-import { createGameState, publicGameState } from "../lib/game-state.js";
+import { createGameState } from "../lib/game-state.js";
+import { publicGame, publicGameState } from "../lib/public-view.js";
 import { handleRoomApi } from "../lib/room-api.js";
 import { createMemoryStore } from "../lib/stores.js";
 
@@ -17,6 +18,7 @@ try {
   await testStartCreatesPrivateGameStateInStore();
   await testStartGuards();
   await testGameFlowApi();
+  await testViewerSpecificPublicViews();
   await testHandlerGetPassesPlayerIdQuery();
   await testControllerAndVercelHandlerStayAligned();
   await testMissingRoom();
@@ -49,6 +51,7 @@ async function testMemoryFallback() {
     started.payload.room.game.players.every((player) => player.handCount === HAND_SIZE && !Object.hasOwn(player, "hand")),
     "started public game should expose hand counts but not hands"
   );
+  assertNoSecretState(started.payload, "start response should not expose secret state without a viewer");
 
   const rejectedJoin = await callHandler("POST", `${code}/join`, { playerId: "three", name: "CCC" });
   assert(rejectedJoin.statusCode === 409, "join after start should still be rejected");
@@ -75,6 +78,7 @@ async function testStartCreatesPrivateGameStateInStore() {
   assert(started.statusCode === 200, "host start should succeed through controller");
   assertPublicGameShape(started.payload.room.game, "controller start response should include safe public game");
   assert(!Object.hasOwn(started.payload.room.game.players[0], "hand"), "start response should not expose private hand");
+  assertNoSecretState(started.payload, "controller start response should not expose secret state");
 
   const storedRoom = rooms.get(code);
   assert(storedRoom.status === "playing", "stored room status should be playing");
@@ -140,6 +144,7 @@ async function testGameFlowApi() {
   const twoPublic = oneView.payload.room.game.players.find((player) => player.id === "two");
   assert(onePublic.hand.length === HAND_SIZE, "current player should see their own hand");
   assert(!Object.hasOwn(twoPublic, "hand"), "current player should not see another player's hand");
+  assertNoSecretState(oneView.payload, "player-scoped GET should only expose viewer hand");
 
   const oneCardIds = onePublic.hand.map((card) => card.instanceId);
   const wrongOwnerArrange = await callController(store, "POST", `${code}/arrange`, {
@@ -154,6 +159,7 @@ async function testGameFlowApi() {
   });
   assert(oneArranged.statusCode === 200, "first player should arrange");
   assert(oneArranged.payload.room.game.phase === "arranging", "game should wait for all arrangements");
+  assertNoSecretState(oneArranged.payload, "arrange response should only expose viewer-safe state");
 
   const repeatArrange = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
@@ -170,9 +176,14 @@ async function testGameFlowApi() {
   assert(twoArranged.statusCode === 200, "second player should arrange");
   assert(twoArranged.payload.room.game.phase === "playing", "all arrangements should advance to turns");
   assert(twoArranged.payload.room.game.turnPlayerId === "one", "first active player should start turns");
+  assertNoSecretState(twoArranged.payload, "arrange response after passing should hide unrevealed received cards");
 
   const hiddenReceivedCard = twoArranged.payload.room.game.players[0].receivedCards[0];
-  assert(hiddenReceivedCard.faceUp === false, "unrevealed received card should be face down");
+  assert(hiddenReceivedCard.revealed === false, "unrevealed received card should stay hidden");
+  assert(Object.hasOwn(hiddenReceivedCard, "position"), "unrevealed received card may expose position");
+  assert(Object.hasOwn(hiddenReceivedCard, "used"), "unrevealed received card may expose used status");
+  assert(!Object.hasOwn(hiddenReceivedCard, "id"), "unrevealed received card should not leak id");
+  assert(!Object.hasOwn(hiddenReceivedCard, "name"), "unrevealed received card should not leak name");
   assert(!Object.hasOwn(hiddenReceivedCard, "type"), "unrevealed received card should not leak type");
   assert(!Object.hasOwn(hiddenReceivedCard, "value"), "unrevealed received card should not leak value");
   assert(!Object.hasOwn(hiddenReceivedCard, "effect"), "unrevealed received card should not leak effect");
@@ -184,10 +195,12 @@ async function testGameFlowApi() {
   assert(firstRoll.statusCode === 200, "current player should roll");
   assert(firstRoll.payload.turn.diceResult === 1, "roll should use server-generated dice");
   const revealedCard = firstRoll.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
-  assert(revealedCard.faceUp === true, "revealed card should be face up in public view");
+  assert(revealedCard.revealed === true, "revealed card should be revealed in public view");
+  assert(revealedCard.name === "+2 分", "revealed card should expose name");
   assert(revealedCard.type === "score", "revealed card should expose type");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value");
   assert(Object.hasOwn(revealedCard, "effect"), "revealed card should expose effect");
+  assertNoSecretState(firstRoll.payload, "roll response should not expose secret state");
 
   const repeatedPosition = await callController(store, "POST", `${code}/turn`, { playerId: "two" }, () => 0);
   assert(repeatedPosition.statusCode === 200, "other player can use the same position on their own board");
@@ -208,6 +221,67 @@ async function testGameFlowApi() {
   assert(afterFinished.statusCode === 409, "finished game should reject further turns");
 }
 
+async function testViewerSpecificPublicViews() {
+  const rooms = new Map();
+  const store = createMemoryStore(rooms);
+  const created = await callController(store, "POST", "", { playerId: "one", name: "AA" });
+  assertNoSecretState(created.payload, "create response should not expose game secrets");
+  const code = created.payload.room.code;
+
+  const joined = await callController(store, "POST", `${code}/join`, { playerId: "two", name: "BBB" });
+  assertNoSecretState(joined.payload, "join response should not expose game secrets");
+
+  const started = await callController(store, "POST", `${code}/start`, { playerId: "one" });
+  assertNoSecretState(started.payload, "start response should not expose hands without viewer");
+
+  const anonymousView = await callController(store, "GET", code);
+  assertNoSecretState(anonymousView.payload, "GET without playerId should not expose private cards");
+
+  const oneView = await callController(store, "GET", code, { playerId: "one" });
+  const twoView = await callController(store, "GET", code, { playerId: "two" });
+  const oneInOneView = oneView.payload.room.game.players.find((player) => player.id === "one");
+  const twoInOneView = oneView.payload.room.game.players.find((player) => player.id === "two");
+  const oneInTwoView = twoView.payload.room.game.players.find((player) => player.id === "one");
+  const twoInTwoView = twoView.payload.room.game.players.find((player) => player.id === "two");
+
+  assert(oneInOneView.hand.length === HAND_SIZE, "A should see A hand");
+  assert(!Object.hasOwn(twoInOneView, "hand"), "A should not see B hand");
+  assert(twoInTwoView.hand.length === HAND_SIZE, "B should see B hand");
+  assert(!Object.hasOwn(oneInTwoView, "hand"), "B should not see A hand");
+
+  const oneCardIds = oneInOneView.hand.map((card) => card.instanceId);
+  const oneArranged = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "one",
+    cardIds: oneCardIds
+  });
+  const oneArrangedPlayer = oneArranged.payload.room.game.players.find((player) => player.id === "one");
+  const twoWaitingPlayer = oneArranged.payload.room.game.players.find((player) => player.id === "two");
+
+  assert(oneArrangedPlayer.arrangedCards.length === HAND_SIZE, "arranged player should see own arranged state");
+  assert(oneArrangedPlayer.arrangedCards[0].type === "score", "arranged player should see own card details");
+  assert(!Object.hasOwn(twoWaitingPlayer, "hand"), "arrange response should still hide the other hand");
+  assertNoSecretState(oneArranged.payload, "arrange response should expose only viewer card details");
+
+  const twoCardIds = twoView.payload.room.game.players.find((player) => player.id === "two").hand.map((card) => card.instanceId);
+  const twoArranged = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "two",
+    cardIds: twoCardIds
+  });
+  const hiddenCard = twoArranged.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  assert(hiddenCard.revealed === false, "unrevealed received card should be hidden after pass");
+  assert(!Object.hasOwn(hiddenCard, "type"), "unrevealed received card should not include type after pass");
+  assert(!Object.hasOwn(hiddenCard, "value"), "unrevealed received card should not include value after pass");
+  assert(!Object.hasOwn(hiddenCard, "effect"), "unrevealed received card should not include effect after pass");
+
+  const turn = await callController(store, "POST", `${code}/turn`, { playerId: "one" }, () => 0);
+  const revealedCard = turn.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  assert(revealedCard.revealed === true, "resolved turn should reveal the selected card");
+  assert(revealedCard.type === "score", "revealed card should expose type after turn");
+  assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value after turn");
+  assert(Object.hasOwn(revealedCard, "effect"), "revealed card should expose effect after turn");
+  assertNoSecretState(turn.payload, "turn response should not expose unrelated secret state");
+}
+
 async function testHandlerGetPassesPlayerIdQuery() {
   useDevMemoryEnv();
   globalThis.__diceCardRooms?.clear();
@@ -226,6 +300,21 @@ async function testHandlerGetPassesPlayerIdQuery() {
 
   assert(onePublic.hand.length === HAND_SIZE, "handler GET should expose current player's hand");
   assert(!Object.hasOwn(twoPublic, "hand"), "handler GET should not expose another player's hand");
+
+  const twoView = await callHandler("GET", code, {}, { playerId: "two" });
+  const twoOwnPublic = twoView.payload.room.game.players.find((player) => player.id === "two");
+  const oneOtherPublic = twoView.payload.room.game.players.find((player) => player.id === "one");
+
+  assert(twoOwnPublic.hand.length === HAND_SIZE, "handler GET should expose B player's own hand");
+  assert(!Object.hasOwn(oneOtherPublic, "hand"), "handler GET should hide A player's hand from B");
+
+  const anonymousView = await callHandler("GET", code);
+  const anonymousPlayers = anonymousView.payload.room.game.players;
+  assert(
+    anonymousPlayers.every((player) => !Object.hasOwn(player, "hand")),
+    "handler GET without playerId should not expose any hand"
+  );
+  assertNoSecretState(anonymousView.payload, "anonymous GET should not expose secret state");
 }
 
 function testGameStatePublicProjection() {
@@ -258,9 +347,10 @@ function testGameStatePublicProjection() {
   assert(publicPlayer.handCount === 2, "public player should expose only hand count");
 
   const hiddenCard = publicPlayer.arrangedCards[0];
-  assert(hiddenCard.id === "hidden-1", "hidden card should keep public id");
   assert(hiddenCard.position === 0, "hidden card should keep public position");
-  assert(hiddenCard.faceUp === false, "hidden card should keep faceUp flag");
+  assert(hiddenCard.revealed === false, "hidden card should keep revealed flag");
+  assert(!Object.hasOwn(hiddenCard, "id"), "hidden card should not expose id");
+  assert(!Object.hasOwn(hiddenCard, "name"), "hidden card should not expose name");
   assert(!Object.hasOwn(hiddenCard, "type"), "hidden card should not expose type");
   assert(!Object.hasOwn(hiddenCard, "value"), "hidden card should not expose value");
   assert(!Object.hasOwn(hiddenCard, "effect"), "hidden card should not expose effect");
@@ -274,12 +364,22 @@ function testGameStatePublicProjection() {
   assert(invalidArrangedCard === null, "primitive arranged card should not leak raw value");
 
   const revealedCard = publicPlayer.receivedCards[0];
-  assert(revealedCard.faceUp === true, "revealed card should be public faceUp");
+  assert(revealedCard.revealed === true, "revealed card should be public revealed");
+  assert(revealedCard.id === "revealed-1", "revealed card should expose id");
+  assert(revealedCard.name === "", "revealed card should expose a serializable name field");
   assert(revealedCard.type === "gift", "revealed card should expose type");
   assert(revealedCard.value === 5, "revealed card should expose value");
   assert(revealedCard.effect === "revealed-effect", "revealed card should expose effect");
   assert(publicPlayer.receivedCards[1] === null, "primitive received card should not leak raw value");
   assert(publicPlayer.receivedCards[2] === null, "null received card should stay safe");
+
+  const viewerView = publicGame(game, "one");
+  const viewerPlayer = viewerView.players[0];
+  const otherPlayer = viewerView.players[1];
+  assert(viewerPlayer.hand.length === 2, "viewer should see their own hand");
+  assert(!Object.hasOwn(otherPlayer, "hand"), "viewer should not see another player's hand");
+  assert(viewerPlayer.arrangedCards[0].type === "attack", "viewer should see their own arranged card details");
+  assert(viewerPlayer.arrangedCards[0].effect === "hidden-effect", "viewer should see their own arranged card effect");
 }
 
 async function testControllerAndVercelHandlerStayAligned() {
@@ -433,6 +533,35 @@ function assertPublicGameShape(game, message) {
   assert(Array.isArray(player.arrangedCards), `${message}: arranged cards`);
   assert(Array.isArray(player.receivedCards), `${message}: received cards`);
   assert(Array.isArray(player.usedPositions), `${message}: used positions`);
+}
+
+function assertNoSecretState(payload, message) {
+  const serialized = JSON.parse(JSON.stringify(payload));
+  const game = serialized.room?.game;
+
+  if (!game) {
+    return;
+  }
+
+  assert(!Object.hasOwn(game, "deck"), `${message}: game should not expose deck`);
+  assert(!Object.hasOwn(game, "discardPile"), `${message}: game should not expose discard pile`);
+
+  for (const player of game.players) {
+    assert(!Object.hasOwn(player, "deck"), `${message}: player should not expose deck`);
+
+    for (const card of [...player.arrangedCards, ...player.receivedCards]) {
+      if (!card) {
+        continue;
+      }
+
+      assert(!Object.hasOwn(card, "faceUp"), `${message}: public card should use revealed, not raw faceUp`);
+      assert(!Object.hasOwn(card, "instanceId"), `${message}: public card should not expose physical instanceId`);
+
+      if (card.revealed === false) {
+        assert(Object.keys(card).every((key) => ["position", "used", "revealed"].includes(key)), `${message}: hidden cards should only expose position, used, and revealed`);
+      }
+    }
+  }
 }
 
 function restoreEnv() {
