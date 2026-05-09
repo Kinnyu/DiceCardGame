@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dice Card Game</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="brand-panel" aria-label="Game preview">
+        <div class="dice-scene" aria-hidden="true">
+          <div class="die die-one"><span></span></div>
+          <div class="die die-two"><span></span><span></span></div>
+          <div class="card-stack">
+            <div class="card card-back"></div>
+            <div class="card card-front">A</div>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Online Lobby MVP</p>
+          <h1>Dice Card Game</h1>
+          <p class="intro">建立房間、分享房號、等朋友加入，先把線上遊戲最重要的入口跑起來。</p>
+        </div>
+      </section>
+
+      <section class="lobby-panel" id="lobbyView">
+        <div class="panel-heading">
+          <p class="eyebrow">Lobby</p>
+          <h2>進入房間</h2>
+        </div>
+
+        <label class="field">
+          <span>暱稱</span>
+          <input id="nameInput" maxlength="18" autocomplete="nickname" placeholder="例如：Joey" />
+        </label>
+
+        <div class="actions">
+          <button id="createRoomButton" class="primary-button" type="button">建立房間</button>
+        </div>
+
+        <div class="join-row">
+          <label class="field">
+            <span>房號</span>
+            <input id="roomCodeInput" maxlength="5" autocomplete="off" placeholder="A7K2Q" />
+          </label>
+          <button id="joinRoomButton" class="secondary-button" type="button">加入</button>
+        </div>
+
+        <p class="message" id="lobbyMessage" role="status"></p>
+      </section>
+
+      <section class="room-panel hidden" id="roomView">
+        <div class="room-topbar">
+          <div>
+            <p class="eyebrow">Waiting Room</p>
+            <h2>房間 <button id="copyCodeButton" class="code-button" type="button"></button></h2>
+          </div>
+          <button id="leaveRoomButton" class="ghost-button" type="button">離開</button>
+        </div>
+
+        <div class="status-strip">
+          <span id="roomStatus">等待玩家</span>
+          <span id="playerCount">0 / 4</span>
+        </div>
+
+        <ul class="player-list" id="playerList"></ul>
+
+        <button id="startGameButton" class="primary-button full-width" type="button">開始遊戲</button>
+        <p class="message" id="roomMessage" role="status"></p>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

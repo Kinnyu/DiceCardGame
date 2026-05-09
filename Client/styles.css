@@ -1,0 +1,376 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #101114;
+  color: #f7f1e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(215, 78, 63, 0.24), transparent 28rem),
+    linear-gradient(135deg, #101114 0%, #1e2422 52%, #30241f 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.shell {
+  width: min(1120px, calc(100% - 32px));
+  min-height: 100vh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 28px;
+  align-items: center;
+  padding: 32px 0;
+}
+
+.brand-panel,
+.lobby-panel,
+.room-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 20, 22, 0.78);
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.brand-panel {
+  min-height: 640px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 42px;
+  border-radius: 8px;
+}
+
+.lobby-panel,
+.room-panel {
+  display: grid;
+  gap: 18px;
+  padding: 30px;
+  border-radius: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #8bc6a6;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 9ch;
+  margin-bottom: 18px;
+  color: #fff9ef;
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  line-height: 0.9;
+  letter-spacing: 0;
+}
+
+h2 {
+  margin-bottom: 0;
+  color: #fff9ef;
+  font-size: 2rem;
+  letter-spacing: 0;
+}
+
+.intro {
+  max-width: 34rem;
+  margin-bottom: 0;
+  color: #d7cab8;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.dice-scene {
+  position: relative;
+  min-height: 300px;
+}
+
+.die {
+  position: absolute;
+  width: 126px;
+  aspect-ratio: 1;
+  display: grid;
+  padding: 22px;
+  border-radius: 8px;
+  background: #f7f1e8;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+}
+
+.die span,
+.die::before,
+.die::after {
+  width: 22px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: #151719;
+  content: "";
+}
+
+.die-one {
+  top: 42px;
+  left: 8px;
+  place-items: center;
+  transform: rotate(-12deg);
+}
+
+.die-two {
+  top: 126px;
+  left: 132px;
+  grid-template-columns: 1fr 1fr;
+  align-content: space-between;
+  justify-content: space-between;
+  background: #e65545;
+  transform: rotate(13deg);
+}
+
+.die-two span:last-child {
+  justify-self: end;
+  align-self: end;
+}
+
+.card-stack {
+  position: absolute;
+  right: 12px;
+  top: 54px;
+  width: 170px;
+  height: 230px;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 4rem;
+  font-weight: 900;
+  box-shadow: 0 26px 54px rgba(0, 0, 0, 0.3);
+}
+
+.card-back {
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.2) 25%, transparent 25% 50%, rgba(255, 255, 255, 0.2) 50% 75%, transparent 75%),
+    #2d6cdf;
+  background-size: 28px 28px;
+  transform: rotate(-9deg) translate(-22px, 18px);
+}
+
+.card-front {
+  color: #2d6cdf;
+  background: #fff9ef;
+  transform: rotate(7deg);
+}
+
+.panel-heading {
+  margin-bottom: 8px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  color: #d7cab8;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+input {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  outline: none;
+  padding: 0 15px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff9ef;
+  letter-spacing: 0;
+}
+
+input:focus {
+  border-color: #8bc6a6;
+  box-shadow: 0 0 0 3px rgba(139, 198, 166, 0.18);
+}
+
+.actions,
+.join-row {
+  display: grid;
+  gap: 12px;
+}
+
+.join-row {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+
+button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 18px;
+  cursor: pointer;
+  font-weight: 850;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    background 160ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.primary-button {
+  color: #151719;
+  background: #f0bf4c;
+}
+
+.secondary-button,
+.ghost-button,
+.code-button {
+  color: #fff9ef;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.secondary-button:hover,
+.ghost-button:hover,
+.code-button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.message {
+  min-height: 24px;
+  margin: 0;
+  color: #ffb7a8;
+  line-height: 1.5;
+}
+
+.room-topbar {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.code-button {
+  min-height: 40px;
+  margin-left: 8px;
+  color: #f0bf4c;
+}
+
+.status-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: rgba(139, 198, 166, 0.12);
+  color: #dff5e8;
+  font-weight: 800;
+}
+
+.player-list {
+  display: grid;
+  gap: 10px;
+  min-height: 250px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player-item {
+  min-height: 58px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff9ef;
+  font-weight: 800;
+}
+
+.host-badge {
+  flex: none;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(230, 85, 69, 0.18);
+  color: #ffb7a8;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    padding: 18px 0;
+  }
+
+  .brand-panel {
+    min-height: 440px;
+    padding: 28px;
+  }
+
+  .dice-scene {
+    min-height: 220px;
+    transform: scale(0.82);
+    transform-origin: top left;
+  }
+}
+
+@media (max-width: 520px) {
+  .shell {
+    width: min(100% - 20px, 1120px);
+  }
+
+  .lobby-panel,
+  .room-panel {
+    padding: 20px;
+  }
+
+  .join-row {
+    grid-template-columns: 1fr;
+  }
+
+  .room-topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ghost-button {
+    width: 100%;
+  }
+}

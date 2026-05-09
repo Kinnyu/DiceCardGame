@@ -1,0 +1,13 @@
+{
+  "name": "dice-card-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node Server/server.js",
+    "dev": "node Server/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
