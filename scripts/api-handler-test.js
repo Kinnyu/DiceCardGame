@@ -306,7 +306,7 @@ async function testGameFlowApi() {
 
   const arrangeBeforeStart = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: []
+    cardInstanceIds: []
   });
   assert(arrangeBeforeStart.statusCode === 409, "arrange before start should be rejected");
 
@@ -330,7 +330,7 @@ async function testGameFlowApi() {
   const oneDraftIds = onePublic.draftCards.map((card) => card.instanceId);
   const arrangeDuringDrafting = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: oneDraftIds.slice(0, HAND_SIZE)
+    cardInstanceIds: oneDraftIds.slice(0, HAND_SIZE)
   });
   assert(arrangeDuringDrafting.statusCode === 400, "drafting phase should not allow arranging");
 
@@ -344,18 +344,38 @@ async function testGameFlowApi() {
   assert(twoDrafted.payload.room.game.phase === "arranging", "all draft-complete players should enter arranging");
 
   const oneAfterDraftView = await callController(store, "GET", code, { playerId: "one" });
-  const oneCardIds = oneAfterDraftView.payload.room.game.players
+  const oneCardInstanceIds = oneAfterDraftView.payload.room.game.players
     .find((player) => player.id === "one")
     .hand.map((card) => card.instanceId);
+  const legacyShapeArrange = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "one",
+    cardIds: oneCardInstanceIds
+  });
+  assert(legacyShapeArrange.statusCode === 400, "arrange should require cardInstanceIds");
+  assert(
+    legacyShapeArrange.payload.error === apiGameErrors.cardInstanceIdsRequired,
+    "arrange should return cardInstanceIdsRequired when cardInstanceIds is missing"
+  );
+
   const wrongOwnerArrange = await callController(store, "POST", `${code}/arrange`, {
     playerId: "two",
-    cardIds: oneCardIds
+    cardInstanceIds: oneCardInstanceIds
   });
   assert(wrongOwnerArrange.statusCode === 400, "player should not arrange cards from another hand");
 
+  const unselectedCandidateArrange = await callController(store, "POST", `${code}/arrange`, {
+    playerId: "one",
+    cardInstanceIds: [...oneCardInstanceIds.slice(0, HAND_SIZE - 1), oneDraftIds[HAND_SIZE]]
+  });
+  assert(unselectedCandidateArrange.statusCode === 400, "player should not arrange an unselected draft candidate");
+  assert(
+    rooms.get(code).game.players.find((player) => player.id === "one").arrangedCards.length === 0,
+    "failed unselected candidate arrange should not mutate arranged cards"
+  );
+
   const oneArranged = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: oneCardIds
+    cardInstanceIds: oneCardInstanceIds
   });
   assert(oneArranged.statusCode === 200, "first player should arrange");
   assert(oneArranged.payload.room.game.phase === "arranging", "game should wait for all arrangements");
@@ -366,15 +386,15 @@ async function testGameFlowApi() {
 
   const repeatArrange = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: oneCardIds
+    cardInstanceIds: oneCardInstanceIds
   });
   assert(repeatArrange.statusCode === 409, "arranged player should not arrange again");
 
   const twoView = await callController(store, "GET", code, { playerId: "two" });
-  const twoCardIds = twoView.payload.room.game.players.find((player) => player.id === "two").hand.map((card) => card.instanceId);
+  const twoCardInstanceIds = twoView.payload.room.game.players.find((player) => player.id === "two").hand.map((card) => card.instanceId);
   const twoArranged = await callController(store, "POST", `${code}/arrange`, {
     playerId: "two",
-    cardIds: twoCardIds
+    cardInstanceIds: twoCardInstanceIds
   });
   assert(twoArranged.statusCode === 200, "second player should arrange");
   assert(twoArranged.payload.room.game.phase === "playing", "all arrangements should advance to turns");
@@ -389,7 +409,7 @@ async function testGameFlowApi() {
 
   const arrangeDuringPlaying = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: oneCardIds
+    cardInstanceIds: oneCardInstanceIds
   });
   assert(arrangeDuringPlaying.statusCode === 400, "playing phase should not allow arranging");
 
@@ -443,7 +463,7 @@ async function testGameFlowApi() {
 
   const arrangeAfterFinished = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: oneCardIds
+    cardInstanceIds: oneCardInstanceIds
   });
   assert(arrangeAfterFinished.statusCode === 400, "finished game should reject arrange");
 }
@@ -543,10 +563,10 @@ async function testViewerSpecificPublicViews() {
 
   const oneAfterDraftView = await callController(store, "GET", code, { playerId: "one" });
   const oneAfterDraft = oneAfterDraftView.payload.room.game.players.find((player) => player.id === "one");
-  const oneCardIds = oneAfterDraft.hand.map((card) => card.instanceId);
+  const oneCardInstanceIds = oneAfterDraft.hand.map((card) => card.instanceId);
   const oneArranged = await callController(store, "POST", `${code}/arrange`, {
     playerId: "one",
-    cardIds: oneCardIds
+    cardInstanceIds: oneCardInstanceIds
   });
   const oneArrangedPlayer = oneArranged.payload.room.game.players.find((player) => player.id === "one");
   const twoWaitingPlayer = oneArranged.payload.room.game.players.find((player) => player.id === "two");
@@ -557,12 +577,12 @@ async function testViewerSpecificPublicViews() {
   assertNoSecretState(oneArranged.payload, "arrange response should expose only viewer card details");
 
   const twoAfterDraftView = await callController(store, "GET", code, { playerId: "two" });
-  const twoCardIds = twoAfterDraftView.payload.room.game.players
+  const twoCardInstanceIds = twoAfterDraftView.payload.room.game.players
     .find((player) => player.id === "two")
     .hand.map((card) => card.instanceId);
   const twoArranged = await callController(store, "POST", `${code}/arrange`, {
     playerId: "two",
-    cardIds: twoCardIds
+    cardInstanceIds: twoCardInstanceIds
   });
   const hiddenCard = twoArranged.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
   assertHiddenCardSafe(hiddenCard, "unrevealed received card after pass");
@@ -932,7 +952,7 @@ async function arrangePlayer(store, code, playerId) {
   const hand = await getPlayerHand(store, code, playerId);
   const arranged = await callController(store, "POST", `${code}/arrange`, {
     playerId,
-    cardIds: hand.map((card) => card.instanceId)
+    cardInstanceIds: hand.map((card) => card.instanceId)
   });
   assert(arranged.statusCode === 200, `arrangePlayer should arrange cards for ${playerId}`);
   return arranged;

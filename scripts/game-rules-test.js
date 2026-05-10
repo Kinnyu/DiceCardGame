@@ -42,6 +42,8 @@ testSelectDraftCardRejectsInvalidDuplicateAndExtraChoices();
 testDealRequiresSetupPhaseWithoutMutating();
 testDealRequiresEnoughCardsWithoutMutatingPhase();
 testArrangePlayerCardsOrdersPositionsAndClearsHand();
+testArrangeRequiresSelectedDraftCards();
+testArrangePlayerCardsUsesSelectedDraftCardsOnly();
 testPassRequiresArrangingAndReadyPlayers();
 testArrangeRejectsDuplicatePhysicalCardsWithoutMutating();
 testArrangeRequiresArrangingPhaseWithoutMutating();
@@ -280,7 +282,7 @@ function testDealRequiresSetupPhaseWithoutMutating() {
 }
 
 function testArrangePlayerCardsOrdersPositionsAndClearsHand() {
-  const game = createPreparedGame();
+  const game = createArrangingDraftedGame();
   const player = game.players[0];
   const orderedIds = player.hand.map((card) => card.instanceId).reverse();
 
@@ -299,8 +301,66 @@ function testArrangePlayerCardsOrdersPositionsAndClearsHand() {
   );
 }
 
+function testArrangeRequiresSelectedDraftCards() {
+  const game = createPreparedGame();
+  const player = game.players[0];
+  const originalHand = player.hand.map((card) => ({ ...card }));
+  game.phase = GAME_PHASE_ARRANGING;
+
+  const result = arrangePlayerCards(
+    game,
+    player.id,
+    player.hand.map((card) => card.instanceId)
+  );
+
+  assert(result.error === gameRuleErrors.invalidHandSize, "arrange should require six selected draft cards");
+  assert(player.hand.length === HAND_SIZE, "failed no-selected arrange should keep hand");
+  assert(
+    player.hand.map((card) => card.instanceId).join(",") === originalHand.map((card) => card.instanceId).join(","),
+    "failed no-selected arrange should not replace hand"
+  );
+  assert(player.arrangedCards.length === 0, "failed no-selected arrange should not create arranged cards");
+}
+
+function testArrangePlayerCardsUsesSelectedDraftCardsOnly() {
+  const game = createDraftingGame();
+  const [player, otherPlayer] = game.players;
+  const selectedIds = player.draftCards.slice(0, HAND_SIZE).map((card) => card.instanceId);
+  const unselectedId = player.draftCards[HAND_SIZE].instanceId;
+
+  for (const cardInstanceId of selectedIds) {
+    const result = selectDraftCard(game, player.id, cardInstanceId);
+    assert(!result.error, "selected-only arrange setup should draft player card");
+  }
+
+  for (const card of otherPlayer.draftCards.slice(0, HAND_SIZE)) {
+    const result = selectDraftCard(game, otherPlayer.id, card.instanceId);
+    assert(!result.error, "selected-only arrange setup should complete other player draft");
+  }
+
+  assert(game.phase === GAME_PHASE_ARRANGING, "selected-only arrange setup should enter arranging");
+
+  const missingSelected = arrangePlayerCards(game, player.id, selectedIds.slice(0, HAND_SIZE - 1));
+  assert(missingSelected.error === gameRuleErrors.invalidHandSize, "arrange should require all six selected cards");
+  assert(player.arrangedCards.length === 0, "missing selected card arrange should not mutate arranged cards");
+
+  const mixedUnselected = arrangePlayerCards(game, player.id, [...selectedIds.slice(0, HAND_SIZE - 1), unselectedId]);
+  assert(mixedUnselected.error === gameRuleErrors.invalidArrangement, "arrange should reject unselected draft cards");
+  assert(player.arrangedCards.length === 0, "unselected draft card arrange should not mutate arranged cards");
+
+  const orderedIds = [...selectedIds].reverse();
+  const result = arrangePlayerCards(game, player.id, orderedIds);
+
+  assert(!result.error, "arrange should accept exactly the six selected draft card instance ids");
+  assert(player.hand.length === 0, "selected draft arrange should clear the private hand");
+  assert(
+    player.arrangedCards.map((card) => card.instanceId).join(",") === orderedIds.join(","),
+    "selected draft arrange should preserve requested selected-card order"
+  );
+}
+
 function testArrangeRejectsDuplicatePhysicalCardsWithoutMutating() {
-  const duplicateInstanceGame = createPreparedGame();
+  const duplicateInstanceGame = createArrangingDraftedGame();
   const duplicatePlayer = duplicateInstanceGame.players[0];
   const originalHand = duplicatePlayer.hand.map((card) => ({ ...card }));
   duplicatePlayer.arrangedCards = [{ instanceId: "existing-card", position: 1 }];
@@ -328,6 +388,7 @@ function testArrangeRejectsDuplicatePhysicalCardsWithoutMutating() {
   mixedIdGame.phase = GAME_PHASE_ARRANGING;
   const mixedPlayer = mixedIdGame.players[0];
   mixedPlayer.hand = createMixedFallbackHand();
+  mixedPlayer.selectedDraftCards = mixedPlayer.hand.map((card) => ({ ...card }));
   mixedPlayer.arrangedCards = [{ instanceId: "previous-card", position: 1 }];
 
   const mixedResult = arrangePlayerCards(mixedIdGame, mixedPlayer.id, [
@@ -345,7 +406,7 @@ function testArrangeRejectsDuplicatePhysicalCardsWithoutMutating() {
 }
 
 function testArrangeRequiresArrangingPhaseWithoutMutating() {
-  const game = createPreparedGame();
+  const game = createArrangingDraftedGame();
   const player = game.players[0];
   const originalHand = player.hand.map((card) => ({ ...card }));
   player.arrangedCards = [{ instanceId: "existing-card", position: 1 }];
@@ -589,7 +650,7 @@ function createDraftingGame() {
 }
 
 function createReadyPassedGame() {
-  const game = createPreparedGame();
+  const game = createArrangingDraftedGame();
 
   for (const player of game.players) {
     const result = arrangePlayerCards(
@@ -602,6 +663,20 @@ function createReadyPassedGame() {
 
   const passResult = passArrangedCardsRight(game);
   assert(!passResult.error, "prepared game should pass cards right");
+  return game;
+}
+
+function createArrangingDraftedGame() {
+  const game = createDraftingGame();
+
+  for (const player of game.players) {
+    for (const card of player.draftCards.slice(0, HAND_SIZE)) {
+      const result = selectDraftCard(game, player.id, card.instanceId);
+      assert(!result.error, "drafted arranging game should select six cards per player");
+    }
+  }
+
+  assert(game.phase === GAME_PHASE_ARRANGING, "drafted arranging game should enter arranging phase");
   return game;
 }
 

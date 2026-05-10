@@ -46,7 +46,7 @@ try {
 
   const playerOneArranged = await post(`/api/rooms/${code}/arrange`, {
     playerId: "player-one",
-    cardIds: playerOneHand.map((card) => card.instanceId)
+    cardInstanceIds: playerOneHand.map((card) => card.instanceId)
   });
   assert(playerOneArranged.status === 200, "first player arrange should return 200");
   assert(playerOneArranged.payload.room.game.phase === "arranging", "game should wait for second arrangement");
@@ -57,7 +57,7 @@ try {
 
   const playerTwoArranged = await post(`/api/rooms/${code}/arrange`, {
     playerId: "player-two",
-    cardIds: playerTwoHand.map((card) => card.instanceId)
+    cardInstanceIds: playerTwoHand.map((card) => card.instanceId)
   });
   assert(playerTwoArranged.status === 200, "second player arrange should return 200");
   assert(playerTwoArranged.payload.room.game.phase === "playing", "both arrangements should start turns");
