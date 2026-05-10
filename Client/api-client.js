@@ -51,10 +51,10 @@ export function startGameRequest(code, playerId) {
   });
 }
 
-export function arrangeCardsRequest(code, playerId, cardIds) {
+export function arrangeCardsRequest(code, playerId, cardInstanceIds) {
   return requestJson(`/api/rooms/${code}/arrange`, {
     method: "POST",
-    body: JSON.stringify({ playerId, cardIds })
+    body: JSON.stringify({ playerId, cardInstanceIds })
   });
 }
 

@@ -233,9 +233,9 @@ async function arrangeCards() {
     return;
   }
 
-  const cardIds = arrangement.map((card) => card?.instanceId || card?.id || "");
-  if (cardIds.some((id) => !id)) {
-    roomMessage.textContent = "請先把 6 張手牌都放入位置 1～6。";
+  const cardInstanceIds = arrangement.map((card) => card?.instanceId || "");
+  if (cardInstanceIds.some((id) => !id)) {
+    roomMessage.textContent = "請把 6 張手牌都放入位置 1～6。";
     return;
   }
 
@@ -245,7 +245,7 @@ async function arrangeCards() {
   setBusy("arrange", true);
 
   try {
-    const payload = await arrangeCardsRequest(code, playerId, cardIds);
+    const payload = await arrangeCardsRequest(code, playerId, cardInstanceIds);
     renderRoom(payload.room, requestId);
   } catch (error) {
     roomMessage.textContent = error.message;
