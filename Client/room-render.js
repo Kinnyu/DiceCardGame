@@ -59,6 +59,7 @@ export function getPlayerNameById(id, room) {
 
 export function getPhaseTitle(phase) {
   const labels = {
+    drafting: "抽牌階段",
     arranging: "排列階段",
     playing: "回合階段",
     finished: "結束階段"

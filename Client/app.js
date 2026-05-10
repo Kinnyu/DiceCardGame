@@ -1,6 +1,7 @@
 import {
   arrangeCardsRequest,
   createRoomRequest,
+  draftCardRequest,
   fetchRoom,
   joinRoomRequest,
   leaveRoomRequest,
@@ -33,6 +34,9 @@ const gamePanel = document.querySelector("#gamePanel");
 const gamePhaseTitle = document.querySelector("#gamePhaseTitle");
 const turnIndicator = document.querySelector("#turnIndicator");
 const diceResult = document.querySelector("#diceResult");
+const draftPanel = document.querySelector("#draftPanel");
+const draftHint = document.querySelector("#draftHint");
+const draftCards = document.querySelector("#draftCards");
 const arrangePanel = document.querySelector("#arrangePanel");
 const arrangeHint = document.querySelector("#arrangeHint");
 const arrangeSlots = document.querySelector("#arrangeSlots");
@@ -69,6 +73,9 @@ const elements = {
   gamePhaseTitle,
   turnIndicator,
   diceResult,
+  draftPanel,
+  draftHint,
+  draftCards,
   arrangePanel,
   arrangeHint,
   arrangeSlots,
@@ -294,6 +301,29 @@ async function arrangeCards() {
   }
 }
 
+async function draftCard(cardInstanceId) {
+  if (!currentRoom || pendingAction || !cardInstanceId) {
+    return;
+  }
+
+  const code = currentRoom.code;
+  const requestId = nextRoomRequestId();
+  roomMessage.textContent = "";
+  setBusy("draft", true);
+
+  try {
+    const payload = await draftCardRequest(code, playerId, cardInstanceId);
+    renderRoom(payload.room, requestId);
+    if (payload.room?.game?.phase === "drafting") {
+      await pollRoomOnce(code, { force: true });
+    }
+  } catch (error) {
+    roomMessage.textContent = error.message;
+  } finally {
+    setBusy("draft", false);
+  }
+}
+
 async function rollTurn() {
   if (!currentRoom || pendingAction) {
     return;
@@ -348,6 +378,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     requestId,
     appliedRoomRequestId,
     callbacks: {
+      draftCard,
       resetArrangement,
       syncArrangement,
       removeArrangementAt,

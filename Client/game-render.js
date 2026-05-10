@@ -16,9 +16,14 @@ export function renderGame(room, context) {
   renderDice(game, room, context);
   renderScores(game, room, context);
 
+  elements.draftPanel.classList.toggle("hidden", phase !== "drafting");
   elements.arrangePanel.classList.toggle("hidden", phase !== "arranging");
   elements.turnPanel.classList.toggle("hidden", phase !== "playing");
   elements.finishedPanel.classList.toggle("hidden", phase !== "finished");
+
+  if (phase === "drafting") {
+    renderDraftPanel(self, game, context);
+  }
 
   if (phase === "arranging") {
     renderArrangePanel(self, context);
@@ -39,6 +44,12 @@ function renderTurnIndicator(game, self, room, context) {
   const { elements, playerId, getPlayerNameById } = context;
   if (game.phase === "finished") {
     elements.turnIndicator.textContent = "已結束";
+    return;
+  }
+
+  if (game.phase === "drafting") {
+    const waiting = game.players.filter((player) => getSelectedDraftCount(player) < context.handSize).length;
+    elements.turnIndicator.textContent = waiting > 0 ? `等待選牌：${waiting} 人` : "準備進入排序";
     return;
   }
 
@@ -67,6 +78,82 @@ function renderDice(game, room, context) {
 
   const rollerName = context.getPlayerNameById(lastRoll.playerId, room);
   context.elements.diceResult.textContent = `骰子結果：${rollerName} 擲出 ${lastRoll.result}，位置 ${lastRoll.position}`;
+}
+
+export function renderDraftPanel(self, game, context) {
+  const { elements, handSize, pendingAction } = context;
+  const draftCards = Array.isArray(self?.draftCards) ? self.draftCards.filter(Boolean) : [];
+  const selectedCards = Array.isArray(self?.selectedDraftCards) ? self.selectedDraftCards.filter(Boolean) : [];
+  const selectedIds = new Set(selectedCards.map((card) => card.instanceId || card.id).filter(Boolean));
+  const selectedCount = selectedCards.length;
+  const draftComplete = selectedCount >= handSize;
+  const waitingOtherPlayers = draftComplete && game.players.some((player) => getSelectedDraftCount(player) < handSize);
+
+  if (!draftCards.length) {
+    elements.draftHint.textContent = "正在等待候選牌資料同步。";
+    elements.draftCards.replaceChildren(emptyState("尚未取得候選牌"));
+    return;
+  }
+
+  if (draftComplete) {
+    elements.draftHint.textContent = waitingOtherPlayers
+      ? "已選滿 6 張，等待其他玩家完成選牌。"
+      : "已選滿 6 張，等待進入排序階段。";
+  } else {
+    elements.draftHint.textContent = `已選 ${selectedCount} / ${handSize} 張，請從候選牌中選擇。`;
+  }
+
+  elements.draftCards.replaceChildren(
+    ...draftCards.map((card, index) =>
+      renderDraftCard(card, {
+        context,
+        index,
+        isSelected: selectedIds.has(card.instanceId || card.id),
+        disabled: Boolean(pendingAction) || draftComplete
+      })
+    )
+  );
+}
+
+function renderDraftCard(card, options) {
+  const { context, index, isSelected, disabled } = options;
+  const button = document.createElement("button");
+  button.className = `draft-card${isSelected ? " selected revealed" : ""}`;
+  button.type = "button";
+  button.disabled = disabled || isSelected;
+  button.setAttribute("aria-pressed", String(isSelected));
+  button.addEventListener("click", () => context.callbacks.draftCard(card.instanceId));
+
+  if (!isSelected) {
+    const back = document.createElement("span");
+    back.className = "draft-card-back";
+    back.textContent = `候選 ${index + 1}`;
+    button.append(back);
+    return button;
+  }
+
+  const label = document.createElement("span");
+  label.className = "card-position";
+  label.textContent = "已選取";
+  button.append(label);
+
+  const name = document.createElement("strong");
+  name.textContent = card.name || "卡牌";
+  button.append(name);
+
+  const effect = document.createElement("span");
+  effect.className = "card-effect";
+  effect.textContent = describeScoreEffect(card);
+  button.append(effect);
+
+  if (card.description) {
+    const description = document.createElement("span");
+    description.className = "card-description";
+    description.textContent = card.description;
+    button.append(description);
+  }
+
+  return button;
 }
 
 export function renderArrangePanel(self, context) {
@@ -235,6 +322,18 @@ export function describeCard(card) {
     parts.push(card.effect);
   }
   return parts.join(" · ") || "無公開效果";
+}
+
+function describeScoreEffect(card) {
+  const value = Number(card?.value);
+  if (Number.isFinite(value) && value !== 0) {
+    return `${value > 0 ? "+" : ""}${value} 分`;
+  }
+  return describeCard(card);
+}
+
+function getSelectedDraftCount(player) {
+  return Array.isArray(player?.selectedDraftCards) ? player.selectedDraftCards.length : 0;
 }
 
 function renderArrangedPreview(cards, handSize) {

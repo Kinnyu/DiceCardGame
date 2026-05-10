@@ -51,6 +51,13 @@ export function startGameRequest(code, playerId) {
   });
 }
 
+export function draftCardRequest(code, playerId, cardInstanceId) {
+  return requestJson(`/api/rooms/${code}/draft`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, cardInstanceId })
+  });
+}
+
 export function arrangeCardsRequest(code, playerId, cardInstanceIds) {
   return requestJson(`/api/rooms/${code}/arrange`, {
     method: "POST",
