@@ -9,6 +9,18 @@
       "destination": "/Client/app.js"
     },
     {
+      "source": "/api-client.js",
+      "destination": "/Client/api-client.js"
+    },
+    {
+      "source": "/game-render.js",
+      "destination": "/Client/game-render.js"
+    },
+    {
+      "source": "/room-render.js",
+      "destination": "/Client/room-render.js"
+    },
+    {
       "source": "/styles.css",
       "destination": "/Client/styles.css"
     },
