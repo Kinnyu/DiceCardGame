@@ -1,4 +1,16 @@
-import { CARD_DEFINITIONS, cloneCard, createDeck, createGameDeck, drawCards, HAND_SIZE, shuffleDeck } from "../lib/cards.js";
+import {
+  CARD_DEFINITIONS,
+  cloneCard,
+  createDeck,
+  createDraftCards,
+  createGameDeck,
+  DRAFT_CARD_COUNT,
+  DRAFT_MINUS_CARD_COUNT,
+  DRAFT_PLUS_CARD_COUNT,
+  drawCards,
+  HAND_SIZE,
+  shuffleDeck
+} from "../lib/cards.js";
 import { rollDie } from "../lib/dice.js";
 import { createGameState, GAME_PHASE_SETUP, INITIAL_SCORE } from "../lib/game-state.js";
 import {
@@ -20,6 +32,7 @@ import {
 testCardDefinitionsDeckAndDraw();
 testSafeRandomRolls();
 testSafeRandomShuffle();
+testCreateDraftCardsBuildsShuffledPlusMinusChoices();
 testDealInitialHandsDealsFullHandsAndAdvances();
 testDealRequiresSetupPhaseWithoutMutating();
 testDealRequiresEnoughCardsWithoutMutatingPhase();
@@ -73,6 +86,47 @@ function testSafeRandomShuffle() {
   assert(shuffled.length === deck.length, "shuffle should keep deck length");
   assert(shuffled.every(Boolean), "shuffle should not create undefined cards");
   assert(deck.every(Boolean), "shuffle should not break the original deck");
+}
+
+function testCreateDraftCardsBuildsShuffledPlusMinusChoices() {
+  let randomCalls = 0;
+  const originalOrder = createDraftCards("Player A", { random: () => 0.99 });
+  const draftCards = createDraftCards("Player A", {
+    uniquePrefix: "seat-1-Player A",
+    random: () => {
+      randomCalls += 1;
+      return 0;
+    }
+  });
+
+  assert(draftCards.length === DRAFT_CARD_COUNT, "draft cards should contain ten candidate cards");
+  assert(
+    draftCards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT,
+    "draft cards should contain five plus cards"
+  );
+  assert(
+    draftCards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT,
+    "draft cards should contain five minus cards"
+  );
+  assert(
+    new Set(draftCards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT,
+    "draft cards should have unique instance ids"
+  );
+  assert(
+    draftCards.every((card) => card.instanceId.startsWith("seat-1-player-a-")),
+    "draft cards should support an injected unique instance id prefix"
+  );
+  assert(
+    draftCards.every((card) => card.type === "score" && card.description),
+    "draft cards should include score details and descriptions"
+  );
+  assert(
+    draftCards.map((card) => card.instanceId).join(",") !==
+      originalOrder.map((card) => card.instanceId).join(","),
+    "draft card order should be controlled by injected random"
+  );
+  assert(randomCalls > 0, "draft card shuffle should call the injected random function");
+  assert(JSON.parse(JSON.stringify(draftCards)).length === DRAFT_CARD_COUNT, "draft cards should be JSON serializable");
 }
 
 function testDealInitialHandsDealsFullHandsAndAdvances() {

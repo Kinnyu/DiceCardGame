@@ -1,5 +1,5 @@
 import handler, { createVercelStore } from "../api/rooms.js";
-import { HAND_SIZE } from "../lib/cards.js";
+import { DRAFT_CARD_COUNT, DRAFT_MINUS_CARD_COUNT, DRAFT_PLUS_CARD_COUNT, HAND_SIZE } from "../lib/cards.js";
 import { createGameState } from "../lib/game-state.js";
 import { publicGame, publicGameState } from "../lib/public-view.js";
 import { handleRoomApi } from "../lib/room-api.js";
@@ -18,6 +18,7 @@ try {
   testGameStatePublicProjection();
   await testMemoryFallback();
   await testStartCreatesPrivateGameStateInStore();
+  await testStartKeepsDraftInstanceIdsUniqueAcrossSanitizedPlayerIds();
   await testStartGuards();
   await testGameFlowApi();
   await testEliminationAndFinishedApiCoverage();
@@ -96,6 +97,7 @@ async function testStartCreatesPrivateGameStateInStore() {
   assert(
     storedRoom.game.players.every(
       (player) =>
+        player.draftCards.length === DRAFT_CARD_COUNT &&
         player.hand.length === HAND_SIZE &&
         player.arrangedCards.length === 0 &&
         player.receivedCards.length === 0 &&
@@ -103,7 +105,52 @@ async function testStartCreatesPrivateGameStateInStore() {
     ),
     "stored game players should have initial hand and arrangement fields"
   );
+  assert(
+    storedRoom.game.players.every((player) => {
+      const values = player.draftCards.map((card) => card.value);
+      return (
+        values.filter((value) => value > 0).length === DRAFT_PLUS_CARD_COUNT &&
+        values.filter((value) => value < 0).length === DRAFT_MINUS_CARD_COUNT
+      );
+    }),
+    "stored game players should have five plus and five minus draft cards"
+  );
+  assert(
+    storedRoom.game.players.every(
+      (player) => new Set(player.draftCards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT
+    ),
+    "stored game draft cards should have unique instance ids per player"
+  );
+  assertAllDraftInstanceIdsUnique(storedRoom, "stored game draft cards should have globally unique instance ids");
   assert(JSON.parse(JSON.stringify(storedRoom)).game.phase === "arranging", "stored room should be JSON serializable");
+}
+
+async function testStartKeepsDraftInstanceIdsUniqueAcrossSanitizedPlayerIds() {
+  const rooms = new Map();
+  const store = createMemoryStore(rooms);
+  const created = await callController(store, "POST", "", { playerId: "A!", name: "AA" });
+  const code = created.payload.room.code;
+
+  await callController(store, "POST", `${code}/join`, { playerId: "a", name: "BBB" });
+  const started = await callController(store, "POST", `${code}/start`, { playerId: "A!" });
+
+  assert(started.statusCode === 200, "host start should succeed for colliding sanitized player ids");
+  const storedRoom = rooms.get(code);
+  assertAllDraftInstanceIdsUnique(
+    storedRoom,
+    "draft card instance ids should stay unique when player ids sanitize to the same value"
+  );
+
+  const firstPlayerIds = storedRoom.game.players[0].draftCards.map((card) => card.instanceId);
+  const secondPlayerIds = storedRoom.game.players[1].draftCards.map((card) => card.instanceId);
+  assert(
+    firstPlayerIds.every((instanceId) => instanceId.startsWith("player-1-")),
+    "first player draft instance ids should include a game-local player prefix"
+  );
+  assert(
+    secondPlayerIds.every((instanceId) => instanceId.startsWith("player-2-")),
+    "second player draft instance ids should include a distinct game-local player prefix"
+  );
 }
 
 async function testStartGuards() {
@@ -146,6 +193,10 @@ async function testGameFlowApi() {
 
   const onePublic = oneView.payload.room.game.players.find((player) => player.id === "one");
   const twoPublic = oneView.payload.room.game.players.find((player) => player.id === "two");
+  assert(onePublic.draftCards.length === DRAFT_CARD_COUNT, "current player should see their own draft cards");
+  assert(onePublic.draftCardCount === DRAFT_CARD_COUNT, "current player should see their own draft card count");
+  assert(twoPublic.draftCardCount === DRAFT_CARD_COUNT, "current player should see another player's draft card count");
+  assert(!Object.hasOwn(twoPublic, "draftCards"), "current player should not see another player's draft cards");
   assert(onePublic.hand.length === HAND_SIZE, "current player should see their own hand");
   assert(!Object.hasOwn(twoPublic, "hand"), "current player should not see another player's hand");
   assertNoSecretState(oneView.payload, "player-scoped GET should only expose viewer hand");
@@ -284,9 +335,13 @@ async function testViewerSpecificPublicViews() {
   const twoInTwoView = twoView.payload.room.game.players.find((player) => player.id === "two");
 
   assert(oneInOneView.hand.length === HAND_SIZE, "A should see A hand");
+  assert(oneInOneView.draftCards.length === DRAFT_CARD_COUNT, "A should see A draft cards");
   assert(!Object.hasOwn(twoInOneView, "hand"), "A should not see B hand");
+  assert(!Object.hasOwn(twoInOneView, "draftCards"), "A should not see B draft cards");
   assert(twoInTwoView.hand.length === HAND_SIZE, "B should see B hand");
+  assert(twoInTwoView.draftCards.length === DRAFT_CARD_COUNT, "B should see B draft cards");
   assert(!Object.hasOwn(oneInTwoView, "hand"), "B should not see A hand");
+  assert(!Object.hasOwn(oneInTwoView, "draftCards"), "B should not see A draft cards");
 
   const oneCardIds = oneInOneView.hand.map((card) => card.instanceId);
   const oneArranged = await callController(store, "POST", `${code}/arrange`, {
@@ -342,13 +397,19 @@ async function testHandlerGetPassesPlayerIdQuery() {
   const oneOtherPublic = twoView.payload.room.game.players.find((player) => player.id === "one");
 
   assert(twoOwnPublic.hand.length === HAND_SIZE, "handler GET should expose B player's own hand");
+  assert(twoOwnPublic.draftCards.length === DRAFT_CARD_COUNT, "handler GET should expose B player's own draft cards");
   assert(!Object.hasOwn(oneOtherPublic, "hand"), "handler GET should hide A player's hand from B");
+  assert(!Object.hasOwn(oneOtherPublic, "draftCards"), "handler GET should hide A player's draft cards from B");
 
   const anonymousView = await callHandler("GET", code);
   const anonymousPlayers = anonymousView.payload.room.game.players;
   assert(
     anonymousPlayers.every((player) => !Object.hasOwn(player, "hand")),
     "handler GET without playerId should not expose any hand"
+  );
+  assert(
+    anonymousPlayers.every((player) => !Object.hasOwn(player, "draftCards")),
+    "handler GET without playerId should not expose any draft cards"
   );
   assertNoSecretState(anonymousView.payload, "anonymous GET should not expose secret state");
 }
@@ -362,6 +423,10 @@ function testGameStatePublicProjection() {
   player.hand = [
     { id: "hand-1", type: "secret", value: 7, effect: "debug-private", faceUp: false },
     "raw-hand-debug"
+  ];
+  player.draftCards = [
+    { id: "draft-1", instanceId: "draft-1-001", type: "score", value: 1, description: "gain" },
+    { id: "draft-2", instanceId: "draft-2-001", type: "score", value: -1, description: "lose" }
   ];
   player.arrangedCards = [
     { id: "hidden-1", position: 0, type: "attack", value: 4, effect: "hidden-effect", faceUp: false },
@@ -380,7 +445,9 @@ function testGameStatePublicProjection() {
 
   const publicPlayer = view.players[0];
   assert(!Object.hasOwn(publicPlayer, "hand"), "public player should not expose private hand");
+  assert(!Object.hasOwn(publicPlayer, "draftCards"), "public player should not expose private draft cards");
   assert(publicPlayer.handCount === 2, "public player should expose only hand count");
+  assert(publicPlayer.draftCardCount === 2, "public player should expose only draft card count");
 
   const hiddenCard = publicPlayer.arrangedCards[0];
   assert(hiddenCard.position === 0, "hidden card should keep public position");
@@ -413,7 +480,10 @@ function testGameStatePublicProjection() {
   const viewerPlayer = viewerView.players[0];
   const otherPlayer = viewerView.players[1];
   assert(viewerPlayer.hand.length === 2, "viewer should see their own hand");
+  assert(viewerPlayer.draftCards.length === 2, "viewer should see their own draft cards");
+  assert(viewerPlayer.draftCards[0].instanceId === "draft-1-001", "viewer should see own draft card instance ids");
   assert(!Object.hasOwn(otherPlayer, "hand"), "viewer should not see another player's hand");
+  assert(!Object.hasOwn(otherPlayer, "draftCards"), "viewer should not see another player's draft cards");
   assert(viewerPlayer.arrangedCards[0].type === "attack", "viewer should see their own arranged card details");
   assert(viewerPlayer.arrangedCards[0].effect === "hidden-effect", "viewer should see their own arranged card effect");
 }
@@ -629,7 +699,9 @@ function assertPublicGameShape(game, message) {
   assert(player.score === 10, `${message}: initial score`);
   assert(player.eliminated === false, `${message}: eliminated flag`);
   assert(player.deckCount === 0, `${message}: deck count`);
+  assert(player.draftCardCount === DRAFT_CARD_COUNT, `${message}: public draft card count`);
   assert(player.handCount === HAND_SIZE, `${message}: public hand count`);
+  assert(!Object.hasOwn(player, "draftCards"), `${message}: public view should not expose draft cards without viewer`);
   assert(!Object.hasOwn(player, "hand"), `${message}: public view should not expose hand`);
   assert(Array.isArray(player.arrangedCards), `${message}: arranged cards`);
   assert(Array.isArray(player.receivedCards), `${message}: received cards`);
@@ -645,6 +717,12 @@ function assertHiddenCardSafe(card, message) {
   assert(!Object.hasOwn(card, "type"), `${message} should not leak type`);
   assert(!Object.hasOwn(card, "value"), `${message} should not leak value`);
   assert(!Object.hasOwn(card, "effect"), `${message} should not leak effect`);
+}
+
+function assertAllDraftInstanceIdsUnique(room, message) {
+  const instanceIds = room.game.players.flatMap((player) => player.draftCards.map((card) => card.instanceId));
+  assert(instanceIds.length === DRAFT_CARD_COUNT * room.game.players.length, `${message}: draft card count`);
+  assert(new Set(instanceIds).size === instanceIds.length, message);
 }
 
 function assertNoSecretState(payload, message) {
