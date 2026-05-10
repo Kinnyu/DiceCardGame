@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 
-const port = 3123;
+const port = await findAvailablePort();
 const baseUrl = `http://localhost:${port}`;
 
 const server = spawn(process.execPath, ["Server/server.js"], {
@@ -17,20 +18,50 @@ server.stderr.on("data", (chunk) => {
 try {
   await waitForServer();
 
-  const created = await post("/api/rooms", { playerId: "player-one", name: "AA" });
+  const createdResponse = await post("/api/rooms", { playerId: "player-one", name: "AA" });
+  assert(createdResponse.status === 201, "create room should return 201");
+  const created = createdResponse.payload;
   assert(created.room?.code, "create room should return a room code");
 
   const code = created.room.code;
-  const joined = await post(`/api/rooms/${code}/join`, { playerId: "player-two", name: "BBB" });
+  const joinedResponse = await post(`/api/rooms/${code}/join`, { playerId: "player-two", name: "BBB" });
+  assert(joinedResponse.status === 200, "join room should return 200");
+  const joined = joinedResponse.payload;
   assert(joined.room.players.length === 2, "join room should add the second player");
 
-  const started = await post(`/api/rooms/${code}/start`, { playerId: "player-one" });
+  const startedResponse = await post(`/api/rooms/${code}/start`, { playerId: "player-one" });
+  assert(startedResponse.status === 200, "start game should return 200");
+  const started = startedResponse.payload;
   assert(started.room.status === "playing", "host should be able to start the game");
   assert(started.room.game?.phase === "arranging", "start should create an arranging game state");
 
-  await post(`/api/rooms/${code}/leave`, { playerId: "player-two" });
-  const afterLeave = await get(`/api/rooms/${code}`);
-  assert(afterLeave.room.players.length === 1, "leave room should remove the player");
+  const playerOneView = (await get(`/api/rooms/${code}?playerId=player-one`)).payload;
+  const playerOneHand = playerOneView.room.game.players.find((player) => player.id === "player-one").hand;
+  assert(playerOneHand.length === 6, "first player should see their hand before arranging");
+
+  const playerOneArranged = await post(`/api/rooms/${code}/arrange`, {
+    playerId: "player-one",
+    cardIds: playerOneHand.map((card) => card.instanceId)
+  });
+  assert(playerOneArranged.status === 200, "first player arrange should return 200");
+  assert(playerOneArranged.payload.room.game.phase === "arranging", "game should wait for second arrangement");
+
+  const playerTwoView = (await get(`/api/rooms/${code}?playerId=player-two`)).payload;
+  const playerTwoHand = playerTwoView.room.game.players.find((player) => player.id === "player-two").hand;
+  assert(playerTwoHand.length === 6, "second player should see their hand before arranging");
+
+  const playerTwoArranged = await post(`/api/rooms/${code}/arrange`, {
+    playerId: "player-two",
+    cardIds: playerTwoHand.map((card) => card.instanceId)
+  });
+  assert(playerTwoArranged.status === 200, "second player arrange should return 200");
+  assert(playerTwoArranged.payload.room.game.phase === "playing", "both arrangements should start turns");
+
+  const turnPlayerId = playerTwoArranged.payload.room.game.turnPlayerId;
+  const turn = await post(`/api/rooms/${code}/turn`, { playerId: turnPlayerId });
+  assert(turn.status === 200, "current player turn should return 200");
+  assert(turn.payload.turn.playerId === turnPlayerId, "turn response should identify the acting player");
+  assert(turn.payload.room.game.dice.lastRoll?.playerId === turnPlayerId, "turn response should include last roll");
 
   console.log("Smoke test passed.");
 } finally {
@@ -53,6 +84,25 @@ async function waitForServer() {
   throw new Error(`Server did not start in time. ${stderr}`.trim());
 }
 
+function findAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.unref();
+    probe.once("error", reject);
+    probe.listen(0, () => {
+      const address = probe.address();
+      probe.close(() => {
+        if (address && typeof address === "object") {
+          resolve(address.port);
+          return;
+        }
+
+        reject(new Error("Could not find an available port."));
+      });
+    });
+  });
+}
+
 async function get(path) {
   const response = await fetch(`${baseUrl}${path}`);
   return readJson(response);
@@ -72,7 +122,7 @@ async function readJson(response) {
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status} ${JSON.stringify(payload)}`);
   }
-  return payload;
+  return { status: response.status, payload };
 }
 
 function assert(condition, message) {
