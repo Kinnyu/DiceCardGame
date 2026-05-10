@@ -118,6 +118,10 @@ async function testStartCreatesPrivateGameStateInStore() {
     "stored game players should have five plus and five minus draft cards"
   );
   assert(
+    storedRoom.game.players.every((player) => player.draftCards.every((card) => hasStableDraftCardShape(card))),
+    "stored game draft cards should include required public card fields"
+  );
+  assert(
     storedRoom.game.players.every(
       (player) => new Set(player.draftCards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT
     ),
@@ -181,6 +185,7 @@ async function testDraftCardApiSelectsSixOwnChoices() {
   const oneDraftIds = onePublic.draftCards.map((card) => card.instanceId);
 
   assert(oneDraftIds.length === DRAFT_CARD_COUNT, "player should see ten own draft choices before drafting");
+  assertDraftCards(onePublic.draftCards, "player own draft choices");
   assert(!Object.hasOwn(twoPublic, "draftCards"), "draft GET should not expose another player's draft choices");
   assert(!Object.hasOwn(twoPublic, "selectedDraftCards"), "draft GET should not expose another player's selections");
 
@@ -217,12 +222,21 @@ async function testDraftCardApiSelectsSixOwnChoices() {
     cardInstanceId: oneDraftIds[0]
   });
   assert(duplicateSelection.statusCode === 400, "player should not select the same draft card twice");
+  assert(duplicateSelection.payload.error, "duplicate draft selection should return an error key");
+
+  const missingSelection = await callController(store, "POST", `${code}/draft`, {
+    playerId: "one",
+    cardInstanceId: "missing-draft-card"
+  });
+  assert(missingSelection.statusCode === 400, "player should not select a missing draft card");
+  assert(missingSelection.payload.error, "missing draft selection should return an error key");
 
   const wrongOwnerSelection = await callController(store, "POST", `${code}/draft`, {
     playerId: "two",
     cardInstanceId: oneDraftIds[1]
   });
   assert(wrongOwnerSelection.statusCode === 400, "player should not select another player's draft card");
+  assert(wrongOwnerSelection.payload.error, "wrong owner draft selection should return an error key");
 
   for (const cardInstanceId of oneDraftIds.slice(1, HAND_SIZE)) {
     const result = await callController(store, "POST", `${code}/draft`, {
@@ -253,6 +267,16 @@ async function testDraftCardApiSelectsSixOwnChoices() {
     cardInstanceId: oneDraftIds[HAND_SIZE]
   });
   assert(extraSelection.statusCode === 409, "player should not select a seventh draft card");
+  assert(extraSelection.payload.error, "seventh draft selection should return an error key");
+
+  const oneCompleteOnlyView = await callController(store, "GET", code, { playerId: "one" });
+  assert(
+    oneCompleteOnlyView.payload.room.game.phase === "drafting",
+    "game should stay drafting while another player has not completed draft"
+  );
+
+  const twoDrafted = await draftSixCards(store, code, "two");
+  assert(twoDrafted.payload.room.game.phase === "arranging", "game should enter arranging after all players draft six cards");
 }
 
 async function testStartGuards() {
@@ -479,6 +503,22 @@ async function testViewerSpecificPublicViews() {
   const anonymousView = await callController(store, "GET", code);
   assertNoSecretState(anonymousView.payload, "GET without playerId should not expose private cards");
 
+  const unknownViewerView = await callController(store, "GET", code, { playerId: "viewer-not-in-room" });
+  const unknownViewerPlayers = unknownViewerView.payload.room.game.players;
+  assert(
+    unknownViewerPlayers.every((player) => !Object.hasOwn(player, "hand")),
+    "unknown viewer should not see any player hand"
+  );
+  assert(
+    unknownViewerPlayers.every((player) => !Object.hasOwn(player, "draftCards")),
+    "unknown viewer should not see any draft cards"
+  );
+  assert(
+    unknownViewerPlayers.every((player) => !Object.hasOwn(player, "selectedDraftCards")),
+    "unknown viewer should not see any selected draft cards"
+  );
+  assertNoSecretState(unknownViewerView.payload, "unknown viewer GET should not expose secret state");
+
   const oneView = await callController(store, "GET", code, { playerId: "one" });
   const twoView = await callController(store, "GET", code, { playerId: "two" });
   const oneInOneView = oneView.payload.room.game.players.find((player) => player.id === "one");
@@ -488,6 +528,7 @@ async function testViewerSpecificPublicViews() {
 
   assert(oneInOneView.hand.length === HAND_SIZE, "A should see A hand");
   assert(oneInOneView.draftCards.length === DRAFT_CARD_COUNT, "A should see A draft cards");
+  assertDraftCards(oneInOneView.draftCards, "A own public draft cards");
   assert(!Object.hasOwn(twoInOneView, "hand"), "A should not see B hand");
   assert(!Object.hasOwn(twoInOneView, "draftCards"), "A should not see B draft cards");
   assert(!Object.hasOwn(twoInOneView, "selectedDraftCards"), "A should not see B selected draft cards");
@@ -561,6 +602,7 @@ async function testHandlerGetPassesPlayerIdQuery() {
 
   assert(twoOwnPublic.hand.length === HAND_SIZE, "handler GET should expose B player's own hand");
   assert(twoOwnPublic.draftCards.length === DRAFT_CARD_COUNT, "handler GET should expose B player's own draft cards");
+  assertDraftCards(twoOwnPublic.draftCards, "handler B own draft cards");
   assert(!Object.hasOwn(oneOtherPublic, "hand"), "handler GET should hide A player's hand from B");
   assert(!Object.hasOwn(oneOtherPublic, "draftCards"), "handler GET should hide A player's draft cards from B");
   assert(
@@ -583,6 +625,22 @@ async function testHandlerGetPassesPlayerIdQuery() {
     "handler GET without playerId should not expose any selected draft cards"
   );
   assertNoSecretState(anonymousView.payload, "anonymous GET should not expose secret state");
+
+  const unknownViewerView = await callHandler("GET", code, {}, { playerId: "viewer-not-in-room" });
+  const unknownViewerPlayers = unknownViewerView.payload.room.game.players;
+  assert(
+    unknownViewerPlayers.every((player) => !Object.hasOwn(player, "hand")),
+    "handler GET with unknown playerId should not expose any hand"
+  );
+  assert(
+    unknownViewerPlayers.every((player) => !Object.hasOwn(player, "draftCards")),
+    "handler GET with unknown playerId should not expose any draft cards"
+  );
+  assert(
+    unknownViewerPlayers.every((player) => !Object.hasOwn(player, "selectedDraftCards")),
+    "handler GET with unknown playerId should not expose any selected draft cards"
+  );
+  assertNoSecretState(unknownViewerView.payload, "handler unknown viewer GET should not expose secret state");
 }
 
 function testGameStatePublicProjection() {
@@ -866,6 +924,10 @@ async function draftPlayer(store, code, playerId) {
   return result;
 }
 
+async function draftSixCards(store, code, playerId) {
+  return draftPlayer(store, code, playerId);
+}
+
 async function arrangePlayer(store, code, playerId) {
   const hand = await getPlayerHand(store, code, playerId);
   const arranged = await callController(store, "POST", `${code}/arrange`, {
@@ -953,6 +1015,27 @@ function assertAllDraftInstanceIdsUnique(room, message) {
   const instanceIds = room.game.players.flatMap((player) => player.draftCards.map((card) => card.instanceId));
   assert(instanceIds.length === DRAFT_CARD_COUNT * room.game.players.length, `${message}: draft card count`);
   assert(new Set(instanceIds).size === instanceIds.length, message);
+}
+
+function assertDraftCards(cards, message) {
+  assert(cards.length === DRAFT_CARD_COUNT, `${message}: should contain ten cards`);
+  assert(cards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT, `${message}: should contain five plus cards`);
+  assert(cards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT, `${message}: should contain five minus cards`);
+  assert(new Set(cards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT, `${message}: instance ids should be unique`);
+  assert(cards.every((card) => hasStableDraftCardShape(card)), `${message}: should include required card fields`);
+}
+
+function hasStableDraftCardShape(card) {
+  return (
+    card &&
+    typeof card.id === "string" &&
+    typeof card.instanceId === "string" &&
+    typeof card.name === "string" &&
+    typeof card.type === "string" &&
+    typeof card.value === "number" &&
+    typeof card.description === "string" &&
+    !Object.hasOwn(card, "effect")
+  );
 }
 
 function assertNoSecretState(payload, message) {

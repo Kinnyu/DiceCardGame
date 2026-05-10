@@ -35,6 +35,7 @@ testCardDefinitionsDeckAndDraw();
 testSafeRandomRolls();
 testSafeRandomShuffle();
 testCreateDraftCardsBuildsShuffledPlusMinusChoices();
+testDraftingGameStartsPlayersWithTenCandidateCards();
 testDealInitialHandsDealsFullHandsAndAdvances();
 testSelectDraftCardRecordsSixChoices();
 testSelectDraftCardRejectsInvalidDuplicateAndExtraChoices();
@@ -158,6 +159,31 @@ function testDealInitialHandsDealsFullHandsAndAdvances() {
   assert(game.players.every((player) => player.deckCount === 0), "dealInitialHands should reset deck count");
 }
 
+function testDraftingGameStartsPlayersWithTenCandidateCards() {
+  const game = createDraftingGame();
+
+  assert(game.phase === GAME_PHASE_DRAFTING, "drafting game should start in drafting phase");
+  for (const player of game.players) {
+    assert(player.draftCards.length === DRAFT_CARD_COUNT, "each player should have ten draft candidate cards");
+    assert(
+      player.draftCards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT,
+      "each player should have five plus draft cards"
+    );
+    assert(
+      player.draftCards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT,
+      "each player should have five minus draft cards"
+    );
+    assert(
+      new Set(player.draftCards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT,
+      "each player's draft candidate cards should have unique instance ids"
+    );
+    assert(
+      player.draftCards.every((card) => hasStableCardShape(card)),
+      "each draft candidate card should include the required card fields"
+    );
+  }
+}
+
 function testSelectDraftCardRecordsSixChoices() {
   const game = createDraftingGame();
   const player = game.players[0];
@@ -194,6 +220,10 @@ function testSelectDraftCardRejectsInvalidDuplicateAndExtraChoices() {
   const wrongOwner = selectDraftCard(game, player.id, otherCardId);
   assert(wrongOwner.error === gameRuleErrors.invalidDraftCard, "player should not select another player's draft card");
   assert(player.selectedDraftCards.length === originalSelectedCards.length, "wrong owner draft should not mutate selection");
+
+  const missingCard = selectDraftCard(game, player.id, "missing-draft-card");
+  assert(missingCard.error === gameRuleErrors.invalidDraftCard, "player should not select a missing draft card");
+  assert(player.selectedDraftCards.length === originalSelectedCards.length, "missing draft card should not mutate selection");
 
   const firstCardId = player.draftCards[0].instanceId;
   const first = selectDraftCard(game, player.id, firstCardId);
