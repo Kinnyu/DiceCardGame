@@ -166,7 +166,7 @@ export function renderArrangePanel(self, context) {
     elements.arrangeHint.textContent = "你已送出排列，等待其他玩家完成。";
     elements.submitArrangeButton.disabled = true;
     elements.arrangeSlots.replaceChildren(...renderArrangedPreview(arrangedCards, handSize));
-    elements.handCards.replaceChildren(emptyState("已送出排列"));
+    elements.handCards.replaceChildren(emptyState("等待其他玩家完成排序"));
     return;
   }
 
@@ -179,71 +179,84 @@ export function renderArrangePanel(self, context) {
   }
 
   callbacks.syncArrangement(hand);
-  elements.arrangeHint.textContent = "點選手牌會放入第一個空的位置；點位置可移除。";
+  elements.arrangeHint.textContent = `已排 ${arrangement.filter(Boolean).length} / ${handSize} 張，請用上移、下移調整第 1～6 位。`;
   elements.arrangeSlots.replaceChildren(
     ...arrangement.map((card, index) => renderArrangeSlot(card, index, context))
   );
-  elements.handCards.replaceChildren(...hand.map((card) => renderHandCard(card, context)));
-  elements.submitArrangeButton.disabled = Boolean(pendingAction) || arrangement.some((card) => !card);
+  elements.handCards.replaceChildren(emptyState("送出後將等待其他玩家完成排序"));
+  elements.submitArrangeButton.disabled =
+    Boolean(pendingAction) ||
+    arrangement.length !== handSize ||
+    arrangement.some((card) => !card) ||
+    new Set(arrangement.map((card) => card?.instanceId).filter(Boolean)).size !== handSize;
 }
 
 function renderArrangeSlot(card, index, context) {
-  const button = document.createElement("button");
-  button.className = `position-card arrange-slot${card ? " filled" : ""}`;
-  button.type = "button";
-  button.disabled = Boolean(context.pendingAction) || !card;
-  button.addEventListener("click", () => context.callbacks.removeArrangementAt(index));
+  const item = document.createElement("div");
+  item.className = `position-card arrange-slot arrange-order-card${card ? " filled" : ""}`;
 
   const position = document.createElement("span");
   position.className = "card-position";
-  position.textContent = `位置 ${index + 1}`;
-  button.append(position);
+  position.textContent = `第 ${index + 1} 位`;
+  item.append(position);
 
   const name = document.createElement("strong");
   name.textContent = card?.name || "空位";
-  button.append(name);
+  item.append(name);
 
   const effect = document.createElement("span");
   effect.className = "card-effect";
-  effect.textContent = card ? describeCard(card) : "尚未放牌";
-  button.append(effect);
+  effect.textContent = card ? describeScoreEffect(card) : "尚未排牌";
+  item.append(effect);
 
-  return button;
+  if (card?.description) {
+    const description = document.createElement("span");
+    description.className = "card-description";
+    description.textContent = card.description;
+    item.append(description);
+  }
+
+  item.append(renderArrangeCardControls(index, context));
+
+  return item;
 }
 
-function renderHandCard(card, context) {
-  const used = context.arrangement.some((slotCard) => sameCard(slotCard, card));
-  const button = document.createElement("button");
-  button.className = "hand-card";
-  button.type = "button";
-  button.disabled = Boolean(context.pendingAction) || used;
-  button.addEventListener("click", () => context.callbacks.placeCardInFirstSlot(card));
+function renderArrangeCardControls(index, context) {
+  const controls = document.createElement("div");
+  controls.className = "arrange-controls";
 
-  const name = document.createElement("strong");
-  name.textContent = card.name || "手牌";
-  button.append(name);
+  const upButton = document.createElement("button");
+  upButton.className = "secondary-button compact-button arrange-move-button";
+  upButton.type = "button";
+  upButton.textContent = "上移";
+  upButton.disabled = Boolean(context.pendingAction) || index === 0;
+  upButton.addEventListener("click", () => context.callbacks.moveArrangementCard(index, index - 1));
+  controls.append(upButton);
 
-  const effect = document.createElement("span");
-  effect.className = "card-effect";
-  effect.textContent = describeCard(card);
-  button.append(effect);
+  const downButton = document.createElement("button");
+  downButton.className = "secondary-button compact-button arrange-move-button";
+  downButton.type = "button";
+  downButton.textContent = "下移";
+  downButton.disabled = Boolean(context.pendingAction) || index >= context.handSize - 1;
+  downButton.addEventListener("click", () => context.callbacks.moveArrangementCard(index, index + 1));
+  controls.append(downButton);
 
-  return button;
+  return controls;
 }
 
 export function renderBoard(self, context) {
   const { elements, currentRoom, handSize, pendingAction, playerId } = context;
+  const game = currentRoom?.game;
+  const players = Array.isArray(game?.players) ? game.players : [];
   const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
-  const cardsByPosition = new Map(receivedCards.map((card) => [card.position, card]));
 
   elements.boardCards.replaceChildren(
-    ...Array.from({ length: handSize }, (_, index) => {
-      const position = index + 1;
-      return renderBoardCard(cardsByPosition.get(position), position);
-    })
+    renderTableCenter(game, currentRoom, context),
+    ...getOpponentSeats(players, playerId).map((seat, index, seats) => renderPlayerSeat(seat, index, seats.length, context)),
+    renderPlayerSeat(self, -1, players.length - 1, context)
   );
 
-  const isMyTurn = currentRoom?.game?.turnPlayerId === playerId;
+  const isMyTurn = game?.turnPlayerId === playerId;
   const noCardLeft = receivedCards.length > 0 && receivedCards.every((card) => card.used);
   const eliminated = Boolean(self?.eliminated);
   elements.rollButton.disabled = Boolean(pendingAction) || !isMyTurn || eliminated || noCardLeft;
@@ -259,9 +272,124 @@ export function renderBoard(self, context) {
   }
 }
 
-function renderBoardCard(card, position) {
+function renderTableCenter(game, room, context) {
+  const center = document.createElement("div");
+  center.className = "table-center";
+
+  const title = document.createElement("strong");
+  title.textContent = "中央區域";
+  center.append(title);
+
+  const currentTurn = document.createElement("span");
+  const turnName = game?.turnPlayerId ? context.getPlayerNameById(game.turnPlayerId, room) : "";
+  currentTurn.textContent = turnName ? `目前回合：${turnName}` : "目前回合：等待中";
+  center.append(currentTurn);
+
+  const reserve = document.createElement("p");
+  reserve.textContent = "預留給骰子、提示與卡牌效果";
+  center.append(reserve);
+
+  return center;
+}
+
+function getOpponentSeats(players, playerId) {
+  const selfIndex = players.findIndex((player) => player.id === playerId);
+  if (selfIndex === -1) {
+    return players.filter((player) => player.id !== playerId);
+  }
+
+  return players
+    .slice(selfIndex + 1)
+    .concat(players.slice(0, selfIndex))
+    .filter((player) => player.id !== playerId);
+}
+
+function renderPlayerSeat(player, opponentIndex, opponentCount, context) {
+  const isSelf = player?.id === context.playerId;
+  const isTurn = Boolean(player?.id && context.currentRoom?.game?.turnPlayerId === player.id);
+  const eliminated = Boolean(player?.eliminated);
+  const seat = document.createElement("section");
+  seat.className = [
+    "player-seat",
+    isSelf ? "self-seat" : getOpponentSeatClass(opponentIndex, opponentCount),
+    isTurn ? "current-turn" : "",
+    eliminated ? "eliminated" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const header = document.createElement("div");
+  header.className = "seat-header";
+
+  const avatar = document.createElement("span");
+  avatar.className = "seat-avatar";
+  avatar.textContent = getInitials(player?.name);
+  header.append(avatar);
+
+  const identity = document.createElement("div");
+  identity.className = "seat-identity";
+
+  const name = document.createElement("strong");
+  name.textContent = player?.name || "未知玩家";
+  identity.append(name);
+
+  const meta = document.createElement("span");
+  meta.textContent = `分數 ${formatScore(player?.score)}`;
+  identity.append(meta);
+  header.append(identity);
+
+  const badges = document.createElement("div");
+  badges.className = "seat-badges";
+  if (isSelf) {
+    badges.append(renderSeatBadge("自己"));
+  }
+  if (isTurn) {
+    badges.append(renderSeatBadge("目前回合"));
+  }
+  if (eliminated) {
+    badges.append(renderSeatBadge("淘汰"));
+  }
+  header.append(badges);
+  seat.append(header);
+
+  const cards = document.createElement("div");
+  cards.className = "seat-card-row";
+  cards.replaceChildren(...renderSeatCards(player, context.handSize, isSelf));
+  seat.append(cards);
+
+  return seat;
+}
+
+function getOpponentSeatClass(index, count) {
+  if (count <= 1) {
+    return "opponent-seat top-seat";
+  }
+  if (count === 2) {
+    return index === 0 ? "opponent-seat left-seat" : "opponent-seat right-seat";
+  }
+  return ["opponent-seat left-seat", "opponent-seat top-seat", "opponent-seat right-seat"][index] || "opponent-seat top-seat";
+}
+
+function renderSeatBadge(text) {
+  const badge = document.createElement("span");
+  badge.className = "seat-badge";
+  badge.textContent = text;
+  return badge;
+}
+
+function renderSeatCards(player, handSize, isSelf) {
+  const receivedCards = Array.isArray(player?.receivedCards) ? player.receivedCards.filter(Boolean) : [];
+  const cardsByPosition = new Map(receivedCards.map((card) => [card.position, card]));
+
+  return Array.from({ length: handSize }, (_, index) => {
+    const position = index + 1;
+    return renderBoardCard(cardsByPosition.get(position), position, isSelf);
+  });
+}
+
+function renderBoardCard(card, position, isSelf = false) {
   const item = document.createElement("div");
-  item.className = `position-card board-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}`;
+  item.className = `position-card board-card table-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}`;
 
   const label = document.createElement("span");
   label.className = "card-position";
@@ -269,15 +397,56 @@ function renderBoardCard(card, position) {
   item.append(label);
 
   const title = document.createElement("strong");
-  title.textContent = card?.revealed ? card.name || "已翻開" : card?.used ? "已使用" : "未翻開";
+  title.textContent = getBoardCardTitle(card);
   item.append(title);
 
   const detail = document.createElement("span");
   detail.className = "card-effect";
-  detail.textContent = card?.revealed ? describeCard(card) : "效果保密";
+  detail.textContent = getBoardCardDetail(card, isSelf);
   item.append(detail);
 
+  if (card?.used) {
+    const used = document.createElement("span");
+    used.className = "used-marker";
+    used.textContent = "已使用";
+    item.append(used);
+  }
+
   return item;
+}
+
+function getBoardCardTitle(card) {
+  if (!card) {
+    return "尚未收到";
+  }
+  if (card.revealed) {
+    return card.name || "已翻開";
+  }
+  return "牌背";
+}
+
+function getBoardCardDetail(card, isSelf) {
+  if (!card) {
+    return "等待公開資料";
+  }
+  if (card.revealed) {
+    return describeCard(card);
+  }
+  return isSelf ? "尚未翻開" : "未公開";
+}
+
+function getInitials(name) {
+  const text = String(name || "?").trim();
+  if (!text) {
+    return "?";
+  }
+  const compact = text.replace(/\s+/g, "");
+  return Array.from(compact).slice(0, 2).join("").toUpperCase();
+}
+
+function formatScore(score) {
+  const number = Number(score);
+  return Number.isFinite(number) ? number : "－";
 }
 
 export function renderScores(game, room, context) {
@@ -378,11 +547,4 @@ function emptyState(text) {
 
 function getSelfGamePlayer(game, playerId) {
   return game.players.find((player) => player.id === playerId) || null;
-}
-
-function sameCard(left, right) {
-  if (!left || !right) {
-    return false;
-  }
-  return (left.instanceId || left.id) === (right.instanceId || right.id);
 }
