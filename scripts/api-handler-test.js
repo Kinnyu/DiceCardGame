@@ -389,7 +389,8 @@ async function testGameFlowApi() {
   assert(revealedCard.type === "score", "revealed card should expose type");
   assert(firstRoll.payload.turn.scoreDelta === revealedCard.value, "turn payload should report score delta");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value");
-  assert(Object.hasOwn(revealedCard, "effect"), "revealed card should expose effect");
+  assert(Object.hasOwn(revealedCard, "description"), "revealed card should expose description");
+  assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect");
   assertNoSecretState(firstRoll.payload, "roll response should not expose secret state");
 
   const repeatedPosition = await callController(store, "POST", `${code}/turn`, { playerId: "two" }, () => 0);
@@ -437,7 +438,7 @@ async function testEliminationAndFinishedApiCoverage() {
   firstCard.name = "-2 分";
   firstCard.type = "score";
   firstCard.value = -2;
-  firstCard.effect = "lose 2";
+  firstCard.description = "lose 2";
 
   const eliminated = await callController(store, "POST", `${code}/roll`, { playerId: currentPlayer.id }, () => 0);
   assert(eliminated.statusCode === 200, "eliminating roll should succeed");
@@ -454,7 +455,8 @@ async function testEliminationAndFinishedApiCoverage() {
   assert(revealedCard.revealed === true, "eliminating card should be revealed");
   assert(revealedCard.type === "score", "revealed eliminating card should expose type");
   assert(revealedCard.value === -2, "revealed eliminating card should expose value");
-  assert(revealedCard.effect === "lose 2", "revealed eliminating card should expose effect");
+  assert(revealedCard.description === "lose 2", "revealed eliminating card should expose description");
+  assert(!Object.hasOwn(revealedCard, "effect"), "revealed eliminating card should not expose legacy effect");
   assertNoSecretState(eliminated.payload, "elimination response should stay viewer-safe");
 
   const afterFinished = await callController(store, "POST", `${code}/roll`, { playerId: winner.id }, () => 0);
@@ -529,7 +531,8 @@ async function testViewerSpecificPublicViews() {
   assert(revealedCard.revealed === true, "resolved turn should reveal the selected card");
   assert(revealedCard.type === "score", "revealed card should expose type after turn");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value after turn");
-  assert(Object.hasOwn(revealedCard, "effect"), "revealed card should expose effect after turn");
+  assert(Object.hasOwn(revealedCard, "description"), "revealed card should expose description after turn");
+  assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect after turn");
   assertNoSecretState(turn.payload, "turn response should not expose unrelated secret state");
 }
 
@@ -589,7 +592,7 @@ function testGameStatePublicProjection() {
   ]);
   const player = game.players[0];
   player.hand = [
-    { id: "hand-1", type: "secret", value: 7, effect: "debug-private", faceUp: false },
+    { id: "hand-1", type: "secret", value: 7, description: "debug-private", faceUp: false },
     "raw-hand-debug"
   ];
   player.draftCards = [
@@ -600,12 +603,12 @@ function testGameStatePublicProjection() {
     { id: "draft-1", instanceId: "draft-1-001", type: "score", value: 1, description: "gain" }
   ];
   player.arrangedCards = [
-    { id: "hidden-1", position: 0, type: "attack", value: 4, effect: "hidden-effect", faceUp: false },
-    { id: "up-1", position: 1, type: "guard", value: 2, effect: "visible-effect", faceUp: true },
+    { id: "hidden-1", position: 0, type: "attack", value: 4, description: "hidden-description", faceUp: false },
+    { id: "up-1", position: 1, type: "guard", value: 2, description: "visible-description", faceUp: true },
     "raw-arranged-debug"
   ];
   player.receivedCards = [
-    { id: "revealed-1", position: 2, type: "gift", value: 5, effect: "revealed-effect", revealed: true },
+    { id: "revealed-1", position: 2, type: "gift", value: 5, description: "revealed-description", revealed: true },
     13,
     null
   ];
@@ -628,12 +631,14 @@ function testGameStatePublicProjection() {
   assert(!Object.hasOwn(hiddenCard, "name"), "hidden card should not expose name");
   assert(!Object.hasOwn(hiddenCard, "type"), "hidden card should not expose type");
   assert(!Object.hasOwn(hiddenCard, "value"), "hidden card should not expose value");
-  assert(!Object.hasOwn(hiddenCard, "effect"), "hidden card should not expose effect");
+  assert(!Object.hasOwn(hiddenCard, "description"), "hidden card should not expose description");
+  assert(!Object.hasOwn(hiddenCard, "effect"), "hidden card should not expose legacy effect");
 
   const faceUpCard = publicPlayer.arrangedCards[1];
   assert(faceUpCard.type === "guard", "face-up card should expose type");
   assert(faceUpCard.value === 2, "face-up card should expose value");
-  assert(faceUpCard.effect === "visible-effect", "face-up card should expose effect");
+  assert(faceUpCard.description === "visible-description", "face-up card should expose description");
+  assert(!Object.hasOwn(faceUpCard, "effect"), "face-up card should not expose legacy effect");
 
   const invalidArrangedCard = publicPlayer.arrangedCards[2];
   assert(invalidArrangedCard === null, "primitive arranged card should not leak raw value");
@@ -644,7 +649,8 @@ function testGameStatePublicProjection() {
   assert(revealedCard.name === "", "revealed card should expose a serializable name field");
   assert(revealedCard.type === "gift", "revealed card should expose type");
   assert(revealedCard.value === 5, "revealed card should expose value");
-  assert(revealedCard.effect === "revealed-effect", "revealed card should expose effect");
+  assert(revealedCard.description === "revealed-description", "revealed card should expose description");
+  assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect");
   assert(publicPlayer.receivedCards[1] === null, "primitive received card should not leak raw value");
   assert(publicPlayer.receivedCards[2] === null, "null received card should stay safe");
 
@@ -659,7 +665,11 @@ function testGameStatePublicProjection() {
   assert(!Object.hasOwn(otherPlayer, "draftCards"), "viewer should not see another player's draft cards");
   assert(!Object.hasOwn(otherPlayer, "selectedDraftCards"), "viewer should not see another player's selected draft cards");
   assert(viewerPlayer.arrangedCards[0].type === "attack", "viewer should see their own arranged card details");
-  assert(viewerPlayer.arrangedCards[0].effect === "hidden-effect", "viewer should see their own arranged card effect");
+  assert(
+    viewerPlayer.arrangedCards[0].description === "hidden-description",
+    "viewer should see their own arranged card description"
+  );
+  assert(!Object.hasOwn(viewerPlayer.hand[0], "effect"), "viewer hand cards should not expose legacy effect");
 }
 
 async function testControllerAndVercelHandlerStayAligned() {
@@ -935,7 +945,8 @@ function assertHiddenCardSafe(card, message) {
   assert(!Object.hasOwn(card, "name"), `${message} should not leak name`);
   assert(!Object.hasOwn(card, "type"), `${message} should not leak type`);
   assert(!Object.hasOwn(card, "value"), `${message} should not leak value`);
-  assert(!Object.hasOwn(card, "effect"), `${message} should not leak effect`);
+  assert(!Object.hasOwn(card, "description"), `${message} should not leak description`);
+  assert(!Object.hasOwn(card, "effect"), `${message} should not leak legacy effect`);
 }
 
 function assertAllDraftInstanceIdsUnique(room, message) {

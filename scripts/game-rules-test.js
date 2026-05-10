@@ -52,7 +52,7 @@ testRevealRequiresPlayingAndTurnPlayer();
 testEliminationFinishesGameWithRemainingWinner();
 testAllPositionsUsedFinishesGameAndDeterminesTie();
 testInvalidScoreNumbersStayFinite();
-testCloneCardKeepsPublicEffectField();
+testCloneCardKeepsDescriptionField();
 
 console.log("Game rules test passed.");
 
@@ -60,10 +60,11 @@ function testCardDefinitionsDeckAndDraw() {
   assert(CARD_DEFINITIONS.length > 0, "card definitions should contain at least one card");
   assert(CARD_DEFINITIONS[0].type === "score", "default card should be a score card");
 
-  const deck = createDeck([{ id: "gain", name: "Gain", type: "score", value: 2, effect: "gain 2" }], 3);
+  const deck = createDeck([{ id: "gain", name: "Gain", type: "score", value: 2, description: "gain 2" }], 3);
   assert(deck.length === 3, "createDeck should create the requested number of copies");
   assert(new Set(deck.map((card) => card.instanceId)).size === 3, "deck cards should have unique instance ids");
-  assert(deck.every((card) => card.effect === "gain 2"), "deck cards should keep effect text");
+  assert(deck.every((card) => card.description === "gain 2"), "deck cards should keep description text");
+  assert(deck.every((card) => !Object.hasOwn(card, "effect")), "deck cards should use the stable description field");
 
   const result = drawCards(deck, 2);
   assert(result.drawn.length === 2, "drawCards should draw the requested count");
@@ -84,7 +85,7 @@ function testSafeRandomRolls() {
 }
 
 function testSafeRandomShuffle() {
-  const deck = createDeck([{ id: "safe", name: "Safe", type: "score", value: 1, effect: "gain" }], 6);
+  const deck = createDeck([{ id: "safe", name: "Safe", type: "score", value: 1, description: "gain" }], 6);
   const shuffled = shuffleDeck(deck, () => 1);
 
   assert(shuffled.length === deck.length, "shuffle should keep deck length");
@@ -123,6 +124,10 @@ function testCreateDraftCardsBuildsShuffledPlusMinusChoices() {
   assert(
     draftCards.every((card) => card.type === "score" && card.description),
     "draft cards should include score details and descriptions"
+  );
+  assert(
+    draftCards.every((card) => hasStableCardShape(card)),
+    "draft cards should use the stable card data shape"
   );
   assert(
     draftCards.map((card) => card.instanceId).join(",") !==
@@ -497,20 +502,31 @@ function testInvalidScoreNumbersStayFinite() {
   assert(player.score === INITIAL_SCORE, "non-number card value should apply as zero");
 }
 
-function testCloneCardKeepsPublicEffectField() {
+function testCloneCardKeepsDescriptionField() {
   const source = {
-    id: "effect-card",
-    name: "Effect Card",
+    id: "description-card",
+    name: "Description Card",
     type: "score",
     value: 3,
-    effect: "gain",
+    description: "gain",
     debugPrivate: "do-not-copy"
+  };
+  const legacySource = {
+    id: "legacy-effect-card",
+    name: "Legacy Effect Card",
+    type: "score",
+    value: 1,
+    effect: "legacy gain"
   };
   const card = cloneCard(source);
   const deck = createDeck([source], 1);
+  const legacyCard = cloneCard(legacySource);
 
-  assert(card.effect === "gain", "cloneCard should keep effect");
-  assert(deck[0].effect === "gain", "createDeck should keep effect");
+  assert(card.description === "gain", "cloneCard should keep description");
+  assert(deck[0].description === "gain", "createDeck should keep description");
+  assert(legacyCard.description === "legacy gain", "cloneCard should map legacy effect input to description");
+  assert(!Object.hasOwn(card, "effect"), "cloneCard should not emit effect");
+  assert(!Object.hasOwn(deck[0], "effect"), "createDeck should not emit effect");
   assert(!Object.hasOwn(card, "debugPrivate"), "cloneCard should not keep private debug fields");
   assert(!Object.hasOwn(deck[0], "debugPrivate"), "createDeck should not keep private debug fields");
 }
@@ -586,4 +602,17 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function hasStableCardShape(card) {
+  return (
+    card &&
+    typeof card.id === "string" &&
+    typeof card.instanceId === "string" &&
+    typeof card.name === "string" &&
+    typeof card.type === "string" &&
+    typeof card.value === "number" &&
+    typeof card.description === "string" &&
+    !Object.hasOwn(card, "effect")
+  );
 }
