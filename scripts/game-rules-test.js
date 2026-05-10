@@ -20,12 +20,14 @@ import {
   determineWinnerIds,
   gameRuleErrors,
   GAME_PHASE_ARRANGING,
+  GAME_PHASE_DRAFTING,
   GAME_PHASE_FINISHED,
   GAME_PHASE_PLAYING,
   passArrangedCardsRight,
   revealCardAtDiceResult,
   revealCardAtPosition,
   resolveGameEnd,
+  selectDraftCard,
   updatePlayerScore
 } from "../lib/game-rules.js";
 
@@ -34,6 +36,8 @@ testSafeRandomRolls();
 testSafeRandomShuffle();
 testCreateDraftCardsBuildsShuffledPlusMinusChoices();
 testDealInitialHandsDealsFullHandsAndAdvances();
+testSelectDraftCardRecordsSixChoices();
+testSelectDraftCardRejectsInvalidDuplicateAndExtraChoices();
 testDealRequiresSetupPhaseWithoutMutating();
 testDealRequiresEnoughCardsWithoutMutatingPhase();
 testArrangePlayerCardsOrdersPositionsAndClearsHand();
@@ -147,6 +151,67 @@ function testDealInitialHandsDealsFullHandsAndAdvances() {
     "dealt cards should start hidden"
   );
   assert(game.players.every((player) => player.deckCount === 0), "dealInitialHands should reset deck count");
+}
+
+function testSelectDraftCardRecordsSixChoices() {
+  const game = createDraftingGame();
+  const player = game.players[0];
+  const selectedIds = player.draftCards.slice(0, HAND_SIZE).map((card) => card.instanceId);
+
+  for (const cardInstanceId of selectedIds) {
+    const result = selectDraftCard(game, player.id, cardInstanceId);
+    assert(!result.error, "selectDraftCard should accept a player's own draft card");
+  }
+
+  assert(player.selectedDraftCards.length === HAND_SIZE, "selectDraftCard should record six selected draft cards");
+  assert(game.phase === GAME_PHASE_DRAFTING, "game should stay drafting until every player selects six cards");
+  assert(
+    player.selectedDraftCards.map((card) => card.instanceId).join(",") === selectedIds.join(","),
+    "selected draft cards should preserve selection order"
+  );
+  assert(
+    player.hand.map((card) => card.instanceId).join(",") === selectedIds.join(","),
+    "selecting six draft cards should sync the hand for arranging"
+  );
+  assert(
+    player.selectedDraftCards.every((card) => card.faceUp === false && card.revealed === false),
+    "selected draft cards should be prepared as hidden cards"
+  );
+  assert(JSON.parse(JSON.stringify(player.selectedDraftCards)).length === HAND_SIZE, "selected draft cards should serialize");
+}
+
+function testSelectDraftCardRejectsInvalidDuplicateAndExtraChoices() {
+  const game = createDraftingGame();
+  const [player, otherPlayer] = game.players;
+  const originalSelectedCards = [...player.selectedDraftCards];
+  const otherCardId = otherPlayer.draftCards[0].instanceId;
+
+  const wrongOwner = selectDraftCard(game, player.id, otherCardId);
+  assert(wrongOwner.error === gameRuleErrors.invalidDraftCard, "player should not select another player's draft card");
+  assert(player.selectedDraftCards.length === originalSelectedCards.length, "wrong owner draft should not mutate selection");
+
+  const firstCardId = player.draftCards[0].instanceId;
+  const first = selectDraftCard(game, player.id, firstCardId);
+  assert(!first.error, "first draft selection should succeed");
+
+  const duplicate = selectDraftCard(game, player.id, firstCardId);
+  assert(duplicate.error === gameRuleErrors.duplicateCard, "player should not select the same draft card twice");
+  assert(player.selectedDraftCards.length === 1, "duplicate draft selection should not mutate selection");
+
+  for (const card of player.draftCards.slice(1, HAND_SIZE)) {
+    const result = selectDraftCard(game, player.id, card.instanceId);
+    assert(!result.error, "remaining draft selections should succeed");
+  }
+
+  const seventh = selectDraftCard(game, player.id, player.draftCards[HAND_SIZE].instanceId);
+  assert(seventh.error === gameRuleErrors.draftAlreadyComplete, "player should not select a seventh draft card");
+  assert(player.selectedDraftCards.length === HAND_SIZE, "extra draft selection should not mutate selection");
+
+  for (const card of otherPlayer.draftCards.slice(0, HAND_SIZE)) {
+    const result = selectDraftCard(game, otherPlayer.id, card.instanceId);
+    assert(!result.error, "other player should be able to complete draft");
+  }
+  assert(game.phase === GAME_PHASE_ARRANGING, "game should enter arranging after every player selects six cards");
 }
 
 function testPassRequiresArrangingAndReadyPlayers() {
@@ -457,8 +522,23 @@ function createPreparedGame() {
   ]);
   const deck = createGameDeck(game.players.length, { random: () => 0 });
   const result = dealInitialHands(game, deck);
+  for (let playerIndex = 0; playerIndex < game.players.length; playerIndex += 1) {
+    game.players[playerIndex].draftCards = createDraftCards(game.players[playerIndex].id, {
+      random: () => 0,
+      uniquePrefix: `test-player-${playerIndex + 1}`
+    });
+  }
 
   assert(!result.error, "prepared game should deal");
+  return game;
+}
+
+function createDraftingGame() {
+  const game = createPreparedGame();
+  game.phase = GAME_PHASE_DRAFTING;
+  game.players.forEach((player) => {
+    player.hand = [];
+  });
   return game;
 }
 

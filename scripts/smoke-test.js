@@ -33,7 +33,12 @@ try {
   assert(startedResponse.status === 200, "start game should return 200");
   const started = startedResponse.payload;
   assert(started.room.status === "playing", "host should be able to start the game");
-  assert(started.room.game?.phase === "arranging", "start should create an arranging game state");
+  assert(started.room.game?.phase === "drafting", "start should create a drafting game state");
+
+  const playerOneDrafted = await draftSixCards(code, "player-one");
+  assert(playerOneDrafted.room.game.phase === "drafting", "game should wait for second player draft");
+  const playerTwoDrafted = await draftSixCards(code, "player-two");
+  assert(playerTwoDrafted.room.game.phase === "arranging", "both drafts should enter arranging");
 
   const playerOneView = (await get(`/api/rooms/${code}?playerId=player-one`)).payload;
   const playerOneHand = playerOneView.room.game.players.find((player) => player.id === "player-one").hand;
@@ -115,6 +120,24 @@ async function post(path, body) {
     body: JSON.stringify(body)
   });
   return readJson(response);
+}
+
+async function draftSixCards(code, playerId) {
+  const view = (await get(`/api/rooms/${code}?playerId=${encodeURIComponent(playerId)}`)).payload;
+  const player = view.room.game.players.find((candidate) => candidate.id === playerId);
+  assert(player.draftCards.length === 10, `${playerId} should see ten draft cards`);
+
+  let result = null;
+  for (const card of player.draftCards.slice(0, 6)) {
+    const response = await post(`/api/rooms/${code}/draft`, {
+      playerId,
+      cardInstanceId: card.instanceId
+    });
+    assert(response.status === 200, `${playerId} draft should return 200`);
+    result = response.payload;
+  }
+
+  return result;
 }
 
 async function readJson(response) {
