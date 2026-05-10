@@ -1,4 +1,4 @@
-import handler from "../api/rooms.js";
+import handler, { createVercelStore } from "../api/rooms.js";
 import { HAND_SIZE } from "../lib/cards.js";
 import { createGameState } from "../lib/game-state.js";
 import { publicGame, publicGameState } from "../lib/public-view.js";
@@ -9,7 +9,9 @@ const savedEnv = {
   VERCEL: process.env.VERCEL,
   NODE_ENV: process.env.NODE_ENV,
   UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
-  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+  KV_REST_API_URL: process.env.KV_REST_API_URL,
+  KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN
 };
 
 try {
@@ -24,6 +26,7 @@ try {
   await testMissingRoom();
   await testExtraPathSegmentsReturn404();
   await testVercelProductionRequiresRedis();
+  testVercelStoreAcceptsKvRedisEnvNames();
   console.log("API handler test passed.");
 } finally {
   restoreEnv();
@@ -441,6 +444,8 @@ async function testVercelProductionRequiresRedis() {
   process.env.NODE_ENV = "production";
   delete process.env.UPSTASH_REDIS_REST_URL;
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.KV_REST_API_URL;
+  delete process.env.KV_REST_API_TOKEN;
 
   const response = await callHandler("POST", "", { playerId: "one", name: "AA" });
   assert(response.statusCode === 503, "Vercel production without Redis should return 503");
@@ -451,11 +456,25 @@ async function testVercelProductionRequiresRedis() {
   );
 }
 
+function testVercelStoreAcceptsKvRedisEnvNames() {
+  process.env.VERCEL = "1";
+  process.env.NODE_ENV = "production";
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  process.env.KV_REST_API_URL = "https://example.upstash.io";
+  process.env.KV_REST_API_TOKEN = "test-token";
+
+  const store = createVercelStore();
+  assert(store.ready === true, "Vercel production should accept KV Redis env names");
+}
+
 function useDevMemoryEnv() {
   delete process.env.VERCEL;
   process.env.NODE_ENV = "test";
   delete process.env.UPSTASH_REDIS_REST_URL;
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.KV_REST_API_URL;
+  delete process.env.KV_REST_API_TOKEN;
 }
 
 async function callController(store, method, path, body = {}, random = Math.random) {
@@ -569,6 +588,8 @@ function restoreEnv() {
   setEnv("NODE_ENV", savedEnv.NODE_ENV);
   setEnv("UPSTASH_REDIS_REST_URL", savedEnv.UPSTASH_REDIS_REST_URL);
   setEnv("UPSTASH_REDIS_REST_TOKEN", savedEnv.UPSTASH_REDIS_REST_TOKEN);
+  setEnv("KV_REST_API_URL", savedEnv.KV_REST_API_URL);
+  setEnv("KV_REST_API_TOKEN", savedEnv.KV_REST_API_TOKEN);
 }
 
 function setEnv(key, value) {

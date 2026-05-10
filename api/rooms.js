@@ -31,10 +31,11 @@ function getBody(req) {
 }
 
 export function createVercelStore() {
-  if (hasRedis()) {
+  const redisConfig = getRedisConfig();
+  if (redisConfig) {
     return createRedisStore({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN
+      url: redisConfig.url,
+      token: redisConfig.token
     });
   }
 
@@ -59,5 +60,16 @@ function sendJson(res, status, payload) {
 }
 
 function hasRedis() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return Boolean(getRedisConfig());
+}
+
+function getRedisConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
+
+  if (!url || !token) {
+    return null;
+  }
+
+  return { url, token };
 }
