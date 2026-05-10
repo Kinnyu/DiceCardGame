@@ -281,8 +281,8 @@ async function arrangeCards() {
   }
 
   const cardInstanceIds = arrangement.map((card) => card?.instanceId || "");
-  if (cardInstanceIds.some((id) => !id)) {
-    roomMessage.textContent = "請把 6 張手牌都放入位置 1～6。";
+  if (cardInstanceIds.length !== handSize || cardInstanceIds.some((id) => !id) || new Set(cardInstanceIds).size !== handSize) {
+    roomMessage.textContent = "請確認 6 張牌都已排好第 1～6 位。";
     return;
   }
 
@@ -381,8 +381,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
       draftCard,
       resetArrangement,
       syncArrangement,
-      removeArrangementAt,
-      placeCardInFirstSlot
+      moveArrangementCard
     }
   });
 
@@ -496,7 +495,7 @@ function setBusy(action, busy) {
 function syncArrangement(hand) {
   const signature = hand.map((card) => card.instanceId || card.id || "").join("|");
   if (signature !== arrangementHandSignature) {
-    arrangement.splice(0, arrangement.length, ...Array(handSize).fill(null));
+    arrangement.splice(0, arrangement.length, ...hand.slice(0, handSize));
     arrangementHandSignature = signature;
   }
 }
@@ -506,17 +505,15 @@ function resetArrangement() {
   arrangementHandSignature = "";
 }
 
-function removeArrangementAt(index) {
-  arrangement[index] = null;
-  if (currentRoom) {
-    renderRoom(currentRoom, appliedRoomRequestId);
+function moveArrangementCard(fromIndex, toIndex) {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= arrangement.length || toIndex >= arrangement.length) {
+    return;
   }
-}
 
-function placeCardInFirstSlot(card) {
-  const emptyIndex = arrangement.findIndex((slotCard) => !slotCard);
-  if (emptyIndex !== -1) {
-    arrangement[emptyIndex] = card;
+  const nextArrangement = [...arrangement];
+  [nextArrangement[fromIndex], nextArrangement[toIndex]] = [nextArrangement[toIndex], nextArrangement[fromIndex]];
+  arrangement.splice(0, arrangement.length, ...nextArrangement);
+  if (currentRoom) {
     renderRoom(currentRoom, appliedRoomRequestId);
   }
 }
