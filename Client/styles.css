@@ -339,6 +339,33 @@ button:disabled {
   background: var(--accent-soft);
 }
 
+.icon-button {
+  min-width: 48px;
+  min-height: 44px;
+  color: var(--text);
+  border-color: var(--line);
+  background: #ffffff;
+}
+
+.icon-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.danger-button {
+  color: #ffffff;
+  background: var(--danger);
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #983a33;
+}
+
+.compact-button {
+  min-height: 38px;
+  padding: 0 12px;
+}
+
 .full-width {
   width: 100%;
 }
@@ -352,6 +379,7 @@ button:disabled {
 }
 
 .room-topbar {
+  position: relative;
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -372,6 +400,60 @@ button:disabled {
   min-height: 40px;
   margin-left: 8px;
   color: var(--accent);
+}
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  justify-items: end;
+  align-items: start;
+  padding: 28px;
+  background: rgba(32, 33, 36, 0.18);
+}
+
+.settings-menu {
+  width: min(320px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(28, 32, 38, 0.18);
+}
+
+.settings-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-heading h3 {
+  font-size: 1.1rem;
+}
+
+.settings-room-code {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.settings-room-code span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.settings-room-code strong {
+  color: var(--text);
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
 }
 
 .status-strip {
@@ -675,6 +757,18 @@ button.position-card:hover:not(:disabled),
   }
 
   .ghost-button {
+    width: 100%;
+  }
+
+  .compact-button {
+    width: auto;
+  }
+
+  .settings-backdrop {
+    padding: 12px;
+  }
+
+  .settings-menu {
     width: 100%;
   }
 

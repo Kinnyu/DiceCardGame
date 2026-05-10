@@ -54,9 +54,23 @@
         <div class="room-topbar">
           <div>
             <p class="eyebrow">Room</p>
-            <h2>房間 <button id="copyCodeButton" class="code-button" type="button"></button></h2>
+            <h2>房間</h2>
           </div>
-          <button id="leaveRoomButton" class="ghost-button" type="button">離開</button>
+          <button id="settingsButton" class="icon-button" type="button" aria-label="設定" aria-expanded="false" aria-controls="settingsMenu">設定</button>
+          <div id="settingsMenu" class="settings-backdrop hidden">
+            <div class="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+              <div class="settings-heading">
+                <h3 id="settingsTitle">設定</h3>
+                <button id="settingsCloseButton" class="ghost-button compact-button" type="button">關閉</button>
+              </div>
+              <div class="settings-room-code">
+                <span>房號</span>
+                <strong id="settingsRoomCode"></strong>
+              </div>
+              <button id="copyCodeButton" class="secondary-button full-width" type="button">複製房號</button>
+              <button id="leaveRoomButton" class="danger-button full-width" type="button">離開房間</button>
+            </div>
+          </div>
         </div>
 
         <div class="status-strip">

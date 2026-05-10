@@ -6,7 +6,8 @@ export function renderRoom(room, context) {
     return false;
   }
 
-  elements.copyCodeButton.textContent = room.code;
+  elements.settingsRoomCode.textContent = room.code;
+  elements.copyCodeButton.textContent = "複製房號";
   elements.roomStatus.textContent = getRoomStatusText(room);
   elements.playerCount.textContent = `${room.players.length} / 4`;
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";

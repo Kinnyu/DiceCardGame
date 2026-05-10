@@ -18,6 +18,10 @@ const joinRoomButton = document.querySelector("#joinRoomButton");
 const leaveRoomButton = document.querySelector("#leaveRoomButton");
 const startGameButton = document.querySelector("#startGameButton");
 const copyCodeButton = document.querySelector("#copyCodeButton");
+const settingsButton = document.querySelector("#settingsButton");
+const settingsMenu = document.querySelector("#settingsMenu");
+const settingsCloseButton = document.querySelector("#settingsCloseButton");
+const settingsRoomCode = document.querySelector("#settingsRoomCode");
 const submitArrangeButton = document.querySelector("#submitArrangeButton");
 const rollButton = document.querySelector("#rollButton");
 const lobbyMessage = document.querySelector("#lobbyMessage");
@@ -50,6 +54,10 @@ const elements = {
   leaveRoomButton,
   startGameButton,
   copyCodeButton,
+  settingsButton,
+  settingsMenu,
+  settingsCloseButton,
+  settingsRoomCode,
   submitArrangeButton,
   rollButton,
   lobbyMessage,
@@ -96,6 +104,13 @@ joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
 startGameButton.addEventListener("click", startGame);
 copyCodeButton.addEventListener("click", copyRoomCode);
+settingsButton.addEventListener("click", toggleSettingsMenu);
+settingsCloseButton.addEventListener("click", closeSettingsMenu);
+settingsMenu.addEventListener("click", (event) => {
+  if (event.target === settingsMenu) {
+    closeSettingsMenu();
+  }
+});
 submitArrangeButton.addEventListener("click", arrangeCards);
 rollButton.addEventListener("click", rollTurn);
 roomCodeInput.addEventListener("input", () => {
@@ -103,6 +118,11 @@ roomCodeInput.addEventListener("input", () => {
 });
 
 window.addEventListener("hashchange", restoreFromHash);
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeSettingsMenu();
+  }
+});
 restoreFromHash();
 
 function getOrCreatePlayerId() {
@@ -183,6 +203,7 @@ async function leaveRoom() {
     return;
   }
 
+  closeSettingsMenu();
   const code = currentRoom.code;
   stopRoomPolling();
   currentRoom = null;
@@ -226,6 +247,25 @@ async function copyRoomCode() {
 
   await navigator.clipboard.writeText(currentRoom.code);
   roomMessage.textContent = "房號已複製。";
+}
+
+function toggleSettingsMenu() {
+  if (settingsMenu.classList.contains("hidden")) {
+    openSettingsMenu();
+  } else {
+    closeSettingsMenu();
+  }
+}
+
+function openSettingsMenu() {
+  settingsMenu.classList.remove("hidden");
+  settingsButton.setAttribute("aria-expanded", "true");
+  settingsCloseButton.focus();
+}
+
+function closeSettingsMenu() {
+  settingsMenu.classList.add("hidden");
+  settingsButton.setAttribute("aria-expanded", "false");
 }
 
 async function arrangeCards() {
@@ -287,6 +327,7 @@ function enterRoom(room, requestId) {
 }
 
 function showLobby() {
+  closeSettingsMenu();
   stopRoomPolling();
   currentRoom = null;
   lobbyView.classList.remove("hidden");
