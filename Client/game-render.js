@@ -273,12 +273,21 @@ export function renderBoard(self, context) {
 }
 
 function renderTableCenter(game, room, context) {
+  const rollState = getRollControlState(game, context);
+  const lastRoll = game?.dice?.lastRoll;
+  const displayValue = context.rollAnimation?.active ? context.rollAnimation.displayValue : lastRoll?.result;
   const center = document.createElement("div");
   center.className = "table-center";
 
   const title = document.createElement("strong");
-  title.textContent = "中央區域";
+  title.textContent = "中央擲骰區";
   center.append(title);
+
+  const dice = document.createElement("div");
+  dice.className = `central-die${context.rollAnimation?.active ? " rolling" : ""}`;
+  dice.setAttribute("aria-live", "polite");
+  dice.textContent = displayValue ?? "－";
+  center.append(dice);
 
   const currentTurn = document.createElement("span");
   const turnName = game?.turnPlayerId ? context.getPlayerNameById(game.turnPlayerId, room) : "";
@@ -286,10 +295,35 @@ function renderTableCenter(game, room, context) {
   center.append(currentTurn);
 
   const reserve = document.createElement("p");
-  reserve.textContent = "預留給骰子、提示與卡牌效果";
+  reserve.textContent = rollState.message;
   center.append(reserve);
 
+  const rollButton = context.elements.rollButton;
+  rollButton.className = "primary-button central-roll-button";
+  rollButton.textContent = context.rollAnimation?.active ? "擲骰中..." : "擲骰";
+  center.append(rollButton);
+
   return center;
+}
+
+function getRollControlState(game, context) {
+  const self = game?.players?.find((player) => player.id === context.playerId);
+  const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
+  const noCardLeft = receivedCards.length > 0 && receivedCards.every((card) => card.used);
+
+  if (context.rollAnimation?.active) {
+    return { message: "骰子跳動中，等待後端回傳正式點數。" };
+  }
+  if (self?.eliminated) {
+    return { message: "你已被淘汰，可以繼續觀看牌桌。" };
+  }
+  if (noCardLeft) {
+    return { message: "你沒有可用卡牌，等待遊戲結算或其他玩家行動。" };
+  }
+  if (game?.turnPlayerId === context.playerId) {
+    return { message: "輪到你了，點擊擲骰後會以後端結果定格。" };
+  }
+  return { message: "等待目前回合玩家擲骰。" };
 }
 
 function getOpponentSeats(players, playerId) {

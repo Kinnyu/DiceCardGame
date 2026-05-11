@@ -103,6 +103,9 @@ let appliedRoomRequestId = 0;
 let pendingAction = "";
 let arrangement = Array(handSize).fill(null);
 let arrangementHandSignature = "";
+let rollAnimationTimer = null;
+let rollDisplayValue = null;
+let rollAnimationActive = false;
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
 
@@ -333,15 +336,18 @@ async function rollTurn() {
   const requestId = nextRoomRequestId();
   roomMessage.textContent = "";
   setBusy("roll", true);
+  startRollAnimation();
 
   try {
     const payload = await rollTurnRequest(code, playerId);
+    finishRollAnimation(payload.turn?.diceResult);
     renderRoom(payload.room, requestId);
     if (payload.turn) {
       const playerName = getPlayerNameById(payload.turn.playerId, payload.room);
       roomMessage.textContent = `${playerName} 擲出 ${payload.turn.diceResult}，翻開位置 ${payload.turn.position}。`;
     }
   } catch (error) {
+    stopRollAnimation();
     roomMessage.textContent = error.message;
   } finally {
     setBusy("roll", false);
@@ -374,6 +380,10 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     handSize,
     pendingAction,
     arrangement,
+    rollAnimation: {
+      active: rollAnimationActive,
+      displayValue: rollDisplayValue
+    },
     currentRoom: room,
     requestId,
     appliedRoomRequestId,
@@ -490,6 +500,45 @@ function setBusy(action, busy) {
   if (currentRoom) {
     renderRoom(currentRoom, appliedRoomRequestId);
   }
+}
+
+function startRollAnimation() {
+  stopRollAnimation();
+  rollAnimationActive = true;
+  rollDisplayValue = randomDiceFace();
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
+  rollAnimationTimer = window.setInterval(() => {
+    rollDisplayValue = randomDiceFace();
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+  }, 90);
+}
+
+function finishRollAnimation(diceResult) {
+  if (rollAnimationTimer) {
+    window.clearInterval(rollAnimationTimer);
+    rollAnimationTimer = null;
+  }
+
+  const result = Number(diceResult);
+  rollAnimationActive = false;
+  rollDisplayValue = Number.isInteger(result) ? result : null;
+}
+
+function stopRollAnimation() {
+  if (rollAnimationTimer) {
+    window.clearInterval(rollAnimationTimer);
+    rollAnimationTimer = null;
+  }
+  rollAnimationActive = false;
+  rollDisplayValue = null;
+}
+
+function randomDiceFace() {
+  return Math.floor(Math.random() * 6) + 1;
 }
 
 function syncArrangement(hand) {

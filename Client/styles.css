@@ -761,7 +761,7 @@ button.position-card:hover:not(:disabled),
 
 .table-center {
   grid-area: center;
-  min-height: 150px;
+  min-height: 210px;
   display: grid;
   place-items: center;
   align-content: center;
@@ -789,6 +789,47 @@ button.position-card:hover:not(:disabled),
   margin: 0;
   font-size: 0.88rem;
   line-height: 1.45;
+}
+
+.central-die {
+  width: clamp(76px, 10vw, 104px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d6c79b;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 2.8rem;
+  font-weight: 950;
+  box-shadow: 0 16px 30px rgba(31, 38, 45, 0.11);
+  transform-origin: center;
+}
+
+.central-die.rolling {
+  border-color: #e0b85d;
+  background: var(--gold-soft);
+  animation: dice-hop 360ms ease-in-out infinite;
+}
+
+.central-roll-button {
+  min-width: 136px;
+  margin-top: 4px;
+}
+
+@keyframes dice-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  45% {
+    transform: translateY(-7px) rotate(5deg);
+  }
+
+  70% {
+    transform: translateY(1px) rotate(-4deg);
+  }
 }
 
 .player-seat {
