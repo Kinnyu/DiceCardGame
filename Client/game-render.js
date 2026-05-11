@@ -255,10 +255,13 @@ export function renderBoard(self, context) {
   const players = Array.isArray(game?.players) ? game.players : [];
   const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
   const targetHint = getTargetHint(game, context);
+  const opponents = getOpponentSeats(players, playerId);
 
+  elements.boardCards.dataset.playerCount = String(players.length);
+  elements.boardCards.dataset.opponentCount = String(opponents.length);
   elements.boardCards.replaceChildren(
     renderTableCenter(game, currentRoom, context, targetHint),
-    ...getOpponentSeats(players, playerId).map((seat, index, seats) =>
+    ...opponents.map((seat, index, seats) =>
       renderPlayerSeat(seat, index, seats.length, context, targetHint)
     ),
     renderPlayerSeat(self, -1, players.length - 1, context, targetHint)
@@ -422,15 +425,17 @@ function renderPlayerSeat(player, opponentIndex, opponentCount, context, targetH
   const isSelf = player?.id === context.playerId;
   const isTurn = Boolean(player?.id && context.currentRoom?.game?.turnPlayerId === player.id);
   const eliminated = Boolean(player?.eliminated);
+  const seatPosition = isSelf ? "self" : getOpponentSeatPosition(opponentIndex, opponentCount);
   const seat = document.createElement("section");
   seat.className = [
     "player-seat",
-    isSelf ? "self-seat" : getOpponentSeatClass(opponentIndex, opponentCount),
+    isSelf ? "self-seat" : `opponent-seat ${seatPosition}-seat`,
     isTurn ? "current-turn" : "",
     eliminated ? "eliminated" : ""
   ]
     .filter(Boolean)
     .join(" ");
+  seat.dataset.seat = seatPosition;
 
   const header = document.createElement("div");
   header.className = "seat-header";
@@ -474,14 +479,14 @@ function renderPlayerSeat(player, opponentIndex, opponentCount, context, targetH
   return seat;
 }
 
-function getOpponentSeatClass(index, count) {
+function getOpponentSeatPosition(index, count) {
   if (count <= 1) {
-    return "opponent-seat top-seat";
+    return "top";
   }
   if (count === 2) {
-    return index === 0 ? "opponent-seat left-seat" : "opponent-seat right-seat";
+    return index === 0 ? "left" : "right";
   }
-  return ["opponent-seat left-seat", "opponent-seat top-seat", "opponent-seat right-seat"][index] || "opponent-seat top-seat";
+  return ["left", "top", "right"][index] || "top";
 }
 
 function renderSeatBadge(text) {
