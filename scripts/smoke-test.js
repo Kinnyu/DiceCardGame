@@ -319,6 +319,7 @@ function assertHiddenCardIsSafe(card, message) {
   assert(card, `${message} should exist`);
   assert(Object.hasOwn(card, "position"), `${message} may expose position`);
   assert(Object.hasOwn(card, "revealed"), `${message} may expose revealed state`);
+  assert(card.state === "hidden", `${message} should expose hidden state`);
   assert(!Object.hasOwn(card, "id"), `${message} should not expose card id`);
   assert(!Object.hasOwn(card, "instanceId"), `${message} should not expose instance id`);
   assert(!Object.hasOwn(card, "name"), `${message} should not expose card name`);
