@@ -11,7 +11,9 @@ import {
 import { getPlayerNameById, renderRoom as renderRoomView } from "./room-render.js";
 
 const lobbyView = document.querySelector("#lobbyView");
+const entryView = document.querySelector("#entryView");
 const roomView = document.querySelector("#roomView");
+const entryStartButton = document.querySelector("#entryStartButton");
 const nameInput = document.querySelector("#nameInput");
 const roomCodeInput = document.querySelector("#roomCodeInput");
 const createRoomButton = document.querySelector("#createRoomButton");
@@ -50,7 +52,9 @@ const winnerText = document.querySelector("#winnerText");
 
 const elements = {
   lobbyView,
+  entryView,
   roomView,
+  entryStartButton,
   nameInput,
   roomCodeInput,
   createRoomButton,
@@ -112,6 +116,7 @@ const acknowledgedRevealedCards = new Set();
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
 
+entryStartButton.addEventListener("click", showLobby);
 createRoomButton.addEventListener("click", createRoom);
 joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
@@ -221,7 +226,7 @@ async function leaveRoom() {
   stopRoomPolling();
   currentRoom = null;
   history.replaceState(null, "", location.pathname);
-  showLobby();
+  showEntry();
 
   try {
     await leaveRoomRequest(code, playerId);
@@ -363,9 +368,23 @@ function enterRoom(room, requestId) {
   }
   renderRoom(room, requestId);
   history.replaceState(null, "", `#room=${room.code}`);
+  entryView.classList.add("hidden");
   lobbyView.classList.add("hidden");
   roomView.classList.remove("hidden");
   startRoomPolling(room.code);
+}
+
+function showEntry() {
+  closeSettingsMenu();
+  stopRoomPolling();
+  resetRevealedCardUi();
+  currentRoom = null;
+  entryView.classList.remove("hidden");
+  lobbyView.classList.add("hidden");
+  roomView.classList.add("hidden");
+  lobbyMessage.textContent = "";
+  roomMessage.textContent = "";
+  resetArrangement();
 }
 
 function showLobby() {
@@ -373,6 +392,7 @@ function showLobby() {
   stopRoomPolling();
   resetRevealedCardUi();
   currentRoom = null;
+  entryView.classList.add("hidden");
   lobbyView.classList.remove("hidden");
   roomView.classList.add("hidden");
   lobbyMessage.textContent = "";
@@ -452,7 +472,7 @@ async function pollRoomOnce(code, { force = false } = {}) {
 
     if (error.status === 404) {
       history.replaceState(null, "", location.pathname);
-      showLobby();
+      showEntry();
       lobbyMessage.textContent = "房間已不存在，請重新建立或加入房間。";
       return;
     }
@@ -482,7 +502,7 @@ async function restoreFromHash() {
   const requestId = ++restoreRequestId;
   const match = location.hash.match(/room=([A-Z0-9]+)/);
   if (!match) {
-    showLobby();
+    showEntry();
     return;
   }
 
@@ -500,7 +520,7 @@ async function restoreFromHash() {
       return;
     }
     history.replaceState(null, "", location.pathname);
-    showLobby();
+    showEntry();
     lobbyMessage.textContent = "找不到房間，請確認房號。";
   }
 }

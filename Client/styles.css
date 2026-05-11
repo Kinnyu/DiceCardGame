@@ -67,6 +67,11 @@ input {
   display: none;
 }
 
+.shell:has(#roomView:not(.hidden)) .brand-panel {
+  display: none;
+}
+
+.entry-view,
 .brand-panel,
 .lobby-panel,
 .room-panel {
@@ -74,6 +79,38 @@ input {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow);
+}
+
+.shell:has(#entryView:not(.hidden)) {
+  grid-template-columns: 1fr;
+  place-items: center;
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-panel {
+  display: none;
+}
+
+.entry-view {
+  width: min(100%, 460px);
+  min-height: min(420px, calc(100dvh - 36px));
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 24px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.entry-view h1 {
+  max-width: 100%;
+  margin: 0;
+  font-size: clamp(2.8rem, 12vw, 5.5rem);
+}
+
+.entry-start-button {
+  min-width: min(100%, 180px);
+  min-height: 46px;
+  font-size: 1rem;
 }
 
 .brand-panel {
@@ -1246,6 +1283,10 @@ button.position-card:hover:not(:disabled),
     padding: 28px;
   }
 
+  .entry-view {
+    min-height: min(360px, calc(100dvh - 24px));
+  }
+
   .dice-scene {
     min-height: 220px;
     transform: scale(0.82);
@@ -1296,6 +1337,23 @@ button.position-card:hover:not(:disabled),
     align-items: stretch;
     overflow: hidden;
     padding: 6px 0;
+  }
+
+  .shell:has(#entryView:not(.hidden)) {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 6px 0;
+  }
+
+  .entry-view {
+    min-height: calc(100dvh - 12px);
+    padding: 24px 16px;
+    gap: 20px;
+  }
+
+  .entry-view h1 {
+    font-size: clamp(2.45rem, 18vw, 4.25rem);
+    line-height: 0.95;
   }
 
   .brand-panel {

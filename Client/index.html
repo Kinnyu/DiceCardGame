@@ -8,6 +8,11 @@
   </head>
   <body>
     <main class="shell">
+      <section class="entry-view" id="entryView" aria-labelledby="entryTitle">
+        <h1 id="entryTitle">Dice Card Game</h1>
+        <button id="entryStartButton" class="primary-button entry-start-button" type="button">開始遊戲</button>
+      </section>
+
       <section class="brand-panel" aria-label="Game preview">
         <div class="dice-scene" aria-hidden="true">
           <div class="die die-one"><span></span></div>
@@ -24,7 +29,7 @@
         </div>
       </section>
 
-      <section class="lobby-panel" id="lobbyView">
+      <section class="lobby-panel hidden" id="lobbyView">
         <div class="panel-heading">
           <p class="eyebrow">Lobby</p>
           <h2>進入房間</h2>

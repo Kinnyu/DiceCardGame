@@ -2,6 +2,12 @@
 
 Dice Card Game lobby MVP. The first playable slice supports room creation, room join, room leave, host-only start, and player list synchronization.
 
+## 玩家操作流程
+
+1. 初始畫面只會看到 `Dice Card Game` 與「開始遊戲」按鈕。
+2. 點擊「開始遊戲」後，進入房間操作畫面。
+3. 在房間操作畫面輸入暱稱，建立房間或輸入房號加入房間。
+
 ## Features
 
 - Enter a player nickname.
