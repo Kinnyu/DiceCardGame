@@ -264,7 +264,7 @@ async function copyRoomCode() {
   }
 
   await navigator.clipboard.writeText(currentRoom.code);
-  roomMessage.textContent = "房號已複製。";
+  roomMessage.textContent = "房號已複製";
 }
 
 function toggleSettingsMenu() {

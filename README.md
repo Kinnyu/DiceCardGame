@@ -1,79 +1,145 @@
 # Dice Card Game
 
-Dice Card Game lobby MVP. The first playable slice supports room creation, room join, room leave, host-only start, and player list synchronization.
+Dice Card Game 是一個多人線上房間制卡牌骰子遊戲。玩家先建立或加入房間，由房主開始遊戲；遊戲開始後每位玩家從候選牌中選牌、排列牌序，牌會傳給右側玩家，接著依序擲骰、翻開自己收到的指定位置卡牌並結算分數。
+
+## 遊戲簡介
+
+- 2 人以上即可由房主開始遊戲。
+- 每位玩家進入遊戲後會從 10 張候選牌中選出 6 張。
+- 玩家自行排列 6 張牌的位置順序。
+- 排列完成後，牌會傳給右側玩家。
+- 進入牌桌後，玩家輪流擲骰，依骰子結果翻開自己收到牌列中的指定位置。
+- 目前卡牌效果以分數調整為主，分數歸零時玩家會被淘汰。
+- 遊戲會在只剩一名未淘汰玩家，或所有未淘汰玩家都用完可用位置後結束，最高分者獲勝。
 
 ## 玩家操作流程
 
-1. 初始畫面只會看到 `Dice Card Game` 與「開始遊戲」按鈕。
-2. 點擊「開始遊戲」後，進入房間操作畫面。
-3. 在房間操作畫面輸入暱稱，建立房間或輸入房號加入房間。
-4. 成功建立或加入房間後，房間操作表單會隱藏，改顯示等待室或遊戲畫面。
-5. 進入房間後可用「設定」開啟選單，選擇「繼續」回到目前畫面，或「退出房間」回到初始首頁。
-6. 遊戲進入 playing phase 後，主要畫面會改為固定牌桌：自己固定在下方，其他玩家依人數分布在上方或左右座位，每位玩家的名稱、分數、回合/淘汰狀態與 6 張場上牌會保留在牌桌中，中央則顯示骰子、目前提示與翻牌效果入口。
+1. 進入網站後，初始畫面只會顯示遊戲標題與「開始遊戲」按鈕。
+2. 點擊「開始遊戲」後，才會進入房間操作畫面。
+3. 在房間操作畫面輸入暱稱，可以選擇建立房間，或輸入房號加入房間。
+4. 成功建立或加入房間後，建立/加入房間表單會隱藏，畫面改為房間等待區。
+5. 房間等待區會顯示房號、玩家列表與人數。只有房主可以在至少 2 名玩家時開始遊戲。
+6. 進入房間或遊戲後，可以透過設定按鈕開啟選單。
+7. 設定選單會顯示房號與複製入口，並提供「繼續」與「退出房間」。退出房間後會回到初始首頁。
+8. 若房間仍存在，網址中的房號 hash 可用來恢復目前房間視圖。
 
-## Features
+## 遊戲規則
 
-- Enter a player nickname.
-- Create a room and get a 5-character room code.
-- Join a waiting room with a room code.
-- Poll the room API to keep the player list in sync.
-- Let the host start the game when at least two players are present.
+遊戲 phase 流程為：
+
+```text
+waiting -> drafting -> arranging -> playing -> finished
+```
+
+### 10 選 6 抽牌
+
+房主開始遊戲後，每位玩家進入抽牌階段。玩家會看到自己的 10 張候選牌，從中選出 6 張。已選過的牌會顯示出牌面，其他玩家無法看到你的候選牌內容。
+
+所有玩家都選滿 6 張後，遊戲進入排列階段。
+
+### 排列 6 張牌
+
+每位玩家把自己選出的 6 張牌排列到第 1 到第 6 位置。排列送出後不可再次排列，並等待其他玩家完成。
+
+所有玩家都完成排列後，牌會傳給右側玩家，遊戲進入固定牌桌布局。
+
+### 擲骰與翻牌
+
+牌桌階段會顯示每位玩家的位置、分數、狀態、6 張牌位，以及中央骰子區。輪到自己的玩家可以擲骰。
+
+擲骰結果會指定位置 1 到 6。該位置會在玩家自己收到的牌列中被翻開並放大提示，玩家可以使用該張卡牌。使用後會套用卡牌分數效果，更新玩家分數，並將回合交給下一位未淘汰玩家。
+
+已使用過的位置不能再次使用。被淘汰的玩家不能再行動，但仍可留在房間觀看。
+
+### 淘汰與勝利
+
+玩家分數降到 0 或以下時會被淘汰。當只剩一位未淘汰玩家，或所有未淘汰玩家都沒有可用卡牌位置時，遊戲結束並依最高分判定勝利者；若最高分相同，可能有多位勝利者。
+
+## 畫面流程
+
+- 初始首頁：只顯示 `Dice Card Game` 與「開始遊戲」。
+- 房間操作：顯示暱稱輸入、建立房間、房號輸入與加入房間。
+- 房間等待：顯示房間資訊、玩家列表、房主開始遊戲按鈕與設定選單。
+- 抽牌階段：顯示 10 張候選牌，玩家選出 6 張。
+- 排列階段：顯示 6 個位置，玩家可上下調整牌序並送出。
+- 牌桌階段：顯示固定牌桌布局、中央骰子、目前回合、指定牌提示、翻牌放大視窗與分數狀態。
+- 結束階段：顯示遊戲結果與勝利者。
+
+手機版主要畫面會避免橫向溢出。候選牌等大量內容會在局部區域滾動，牌桌階段會盡量讓主要牌桌資訊、目前回合與骰子區保持可見。
+
+## 資訊隱藏
+
+- 玩家只能看到自己的候選牌、已選牌與排列中的手牌內容。
+- 其他玩家的未公開牌會以牌背或隱藏狀態呈現。
+- 牌傳給右側玩家後，未翻開的牌仍不公開。
+- 擲骰指定位置後，對應牌才會翻開並公開該牌資訊。
+- API 回傳的公開房間資料會依觀看者身分過濾私人手牌資訊。
 
 ## Local Development
+
+需要 Node.js 20 或以上版本。
 
 ```bash
 npm start
 ```
 
-Open:
+或：
+
+```bash
+npm run dev
+```
+
+本機伺服器預設提供：
 
 ```text
 http://localhost:3000
 ```
 
-The local development server uses in-memory room state and serves the static files from `Client/`.
+本機開發使用記憶體房間狀態，並由 `Server/server.js` 提供 API 與 `Client/` 靜態檔案。
 
 ## Project Structure
 
-- `Client/`: browser UI for the lobby and waiting room.
-- `lib/rooms.js`: domain rules for room codes, players, host checks, and public room shape.
-- `lib/room-api.js`: shared API controller/workflow for create, get, join, leave, and start.
-- `lib/stores.js`: memory and Redis persistence adapters.
-- `Server/server.js`: local HTTP/static adapter.
-- `api/rooms.js`: Vercel Function adapter.
-- `scripts/`: checks and smoke tests.
+- `Client/`: 瀏覽器端 UI、房間流程與遊戲畫面。
+- `lib/rooms.js`: 房間代碼、玩家、房主與房間公開資料規則。
+- `lib/room-api.js`: 建立、加入、離開、開始、抽牌、排列與擲骰的共用 API 流程。
+- `lib/game-rules.js`: 遊戲 phase、抽牌、排列、傳牌、翻牌、分數、淘汰與勝利判定。
+- `lib/cards.js`: 卡牌資料與抽牌工具。
+- `lib/public-view.js`: 依觀看者身分產生公開遊戲狀態。
+- `lib/stores.js`: Memory 與 Redis persistence adapters。
+- `Server/server.js`: 本機 HTTP/static adapter。
+- `api/rooms.js`: Vercel Function adapter。
+- `scripts/`: smoke、API handler 與 game rules 檢查腳本。
+
+## Checks
+
+```bash
+npm run check
+npm run test:game
+npm run test:api
+npm run test:smoke
+```
 
 ## Vercel Deployment
 
-The project is deployable to Vercel with `vercel.json` and `api/rooms.js`.
+專案可透過 `vercel.json` 與 `api/rooms.js` 部署到 Vercel。
 
-Production Vercel deployments must use Redis-compatible persistent storage. Configure these environment variables:
+Production Vercel deployments 需要 Redis-compatible persistent storage。請設定：
 
 ```text
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 ```
 
-Without those variables, `api/rooms.js` only allows an in-memory fallback outside Vercel production. In Vercel production, the API returns a clear `503` error instead of pretending memory is a reliable multiplayer store.
+如果沒有這些環境變數，`api/rooms.js` 只會在非 Vercel production 環境允許記憶體 fallback。在 Vercel production 中，API 會回傳明確的 `503`，避免把記憶體狀態誤當成可靠的多人遊戲儲存。
 
-The MVP checks generated room-code collisions before saving; at high production traffic, room creation can be made fully atomic with Redis `SET NX`.
-
-Deploy:
+部署：
 
 ```bash
 npx vercel
 ```
 
-Deploy to production:
+部署到 production：
 
 ```bash
 npx vercel --prod
-```
-
-## Checks
-
-```bash
-npm run check
-npm run test:smoke
-npm run test:api
 ```
