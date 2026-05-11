@@ -116,7 +116,7 @@ const acknowledgedRevealedCards = new Set();
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
 
-entryStartButton.addEventListener("click", showLobby);
+entryStartButton.addEventListener("click", showRoomActions);
 createRoomButton.addEventListener("click", createRoom);
 joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
@@ -387,7 +387,7 @@ function showEntry() {
   resetArrangement();
 }
 
-function showLobby() {
+function showRoomActions() {
   closeSettingsMenu();
   stopRoomPolling();
   resetRevealedCardUi();

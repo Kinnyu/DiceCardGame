@@ -86,7 +86,16 @@ input {
   place-items: center;
 }
 
+.shell:has(#lobbyView:not(.hidden)) {
+  grid-template-columns: 1fr;
+  place-items: center;
+}
+
 .shell:has(#entryView:not(.hidden)) .brand-panel {
+  display: none;
+}
+
+.shell:has(#lobbyView:not(.hidden)) .brand-panel {
   display: none;
 }
 
@@ -111,6 +120,10 @@ input {
   min-width: min(100%, 180px);
   min-height: 46px;
   font-size: 1rem;
+}
+
+.room-action-view {
+  width: min(100%, 430px);
 }
 
 .brand-panel {
@@ -1345,6 +1358,12 @@ button.position-card:hover:not(:disabled),
     padding: 6px 0;
   }
 
+  .shell:has(#lobbyView:not(.hidden)) {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 6px 0;
+  }
+
   .entry-view {
     min-height: calc(100dvh - 12px);
     padding: 24px 16px;
@@ -1354,6 +1373,13 @@ button.position-card:hover:not(:disabled),
   .entry-view h1 {
     font-size: clamp(2.45rem, 18vw, 4.25rem);
     line-height: 0.95;
+  }
+
+  .room-action-view {
+    width: 100%;
+    max-height: calc(100dvh - 12px);
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 
   .brand-panel {
