@@ -6,6 +6,7 @@ export function renderGame(room, context) {
 
   if (!game) {
     callbacks.resetArrangement();
+    elements.gamePanel.querySelector(".card-modal-backdrop")?.remove();
     return;
   }
 
@@ -38,6 +39,8 @@ export function renderGame(room, context) {
   if (phase === "finished") {
     renderFinished(game, room, context);
   }
+
+  renderRevealedCardModal(game, context);
 }
 
 function renderTurnIndicator(game, self, room, context) {
@@ -338,15 +341,18 @@ function getTargetHint(game, context) {
     : null;
   const isViewerTarget = targetPlayerId === context.playerId;
   const isOpen = Boolean(targetCard?.used || targetCard?.revealed);
+  const cardKey = getRevealedCardKey(context.currentRoom?.code, targetPlayerId, position, targetCard, lastRoll);
+  const isAcknowledged = Boolean(cardKey && context.acknowledgedRevealedCards?.has(cardKey));
   const canClick =
     isViewerTarget &&
-    game.turnPlayerId === context.playerId &&
-    !isOpen &&
+    Boolean(targetCard?.revealed) &&
+    !isAcknowledged &&
     !targetPlayer?.eliminated &&
     !context.pendingAction;
 
   return {
     canClick,
+    isAcknowledged,
     isOpen,
     isViewerTarget,
     playerId: targetPlayerId,
@@ -354,7 +360,23 @@ function getTargetHint(game, context) {
   };
 }
 
+function getRevealedCardKey(roomCode, targetPlayerId, position, card, lastRoll) {
+  if (!roomCode || !targetPlayerId || !card) {
+    return "";
+  }
+
+  const cardId = card.instanceId || card.id || "card";
+  const rollResult = lastRoll?.result ?? lastRoll?.position ?? "roll";
+  return `${roomCode}:${targetPlayerId}:${position}:${cardId}:${rollResult}`;
+}
+
 function getTargetHintText(targetHint) {
+  if (targetHint.isAcknowledged) {
+    return `第 ${targetHint.position} 張牌已使用`;
+  }
+  if (targetHint.canClick) {
+    return `請點擊第 ${targetHint.position} 張牌`;
+  }
   if (targetHint.isOpen) {
     return `第 ${targetHint.position} 張牌已翻開`;
   }
@@ -536,6 +558,88 @@ function getBoardCardDetail(card, isSelf) {
     return describeCard(card);
   }
   return isSelf ? "尚未翻開" : "未公開";
+}
+
+function renderRevealedCardModal(game, context) {
+  const existing = context.elements.gamePanel.querySelector(".card-modal-backdrop");
+  const modal = context.revealedCardModal;
+  const player = modal
+    ? game?.players?.find((candidate) => candidate.id === modal.playerId) || null
+    : null;
+  const card = Array.isArray(player?.receivedCards)
+    ? player.receivedCards.find((candidate) => candidate?.position === modal.position) || null
+    : null;
+
+  if (!modal || !card?.revealed) {
+    existing?.remove();
+    return;
+  }
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "card-modal-backdrop";
+  backdrop.addEventListener("click", (event) => {
+    if (event.target === backdrop) {
+      context.callbacks.closeRevealedCardModal();
+    }
+  });
+
+  const dialog = document.createElement("section");
+  dialog.className = "card-modal";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-label", "放大卡牌");
+
+  const closeButton = document.createElement("button");
+  closeButton.className = "card-modal-close";
+  closeButton.type = "button";
+  closeButton.textContent = "關閉";
+  closeButton.disabled = Boolean(context.cardUsePending);
+  closeButton.addEventListener("click", context.callbacks.closeRevealedCardModal);
+  dialog.append(closeButton);
+
+  const largeCard = document.createElement("article");
+  largeCard.className = `large-card ${Number(card.value) >= 0 ? "score-positive" : "score-negative"}`;
+
+  const position = document.createElement("span");
+  position.className = "card-position";
+  position.textContent = `第 ${modal.position} 張牌`;
+  largeCard.append(position);
+
+  const title = document.createElement("h3");
+  title.textContent = card.name || "已翻開卡牌";
+  largeCard.append(title);
+
+  const effect = document.createElement("strong");
+  effect.className = "large-card-effect";
+  effect.textContent = card.type === "score" ? describeScoreEffect(card) : describeCard(card);
+  largeCard.append(effect);
+
+  if (card.description) {
+    const description = document.createElement("p");
+    description.className = "large-card-description";
+    description.textContent = card.description;
+    largeCard.append(description);
+  }
+
+  dialog.append(largeCard);
+
+  const actions = document.createElement("div");
+  actions.className = "card-modal-actions";
+
+  const useButton = document.createElement("button");
+  useButton.className = "primary-button card-use-button";
+  useButton.type = "button";
+  useButton.textContent = context.cardUsePending ? "使用中..." : "使用";
+  useButton.disabled = Boolean(context.cardUsePending) || modal.playerId !== context.playerId || card.type !== "score";
+  useButton.addEventListener("click", context.callbacks.useRevealedCard);
+  actions.append(useButton);
+
+  dialog.append(actions);
+  backdrop.append(dialog);
+  existing?.replaceWith(backdrop);
+  if (!existing) {
+    context.elements.gamePanel.append(backdrop);
+  }
 }
 
 function getInitials(name) {

@@ -106,6 +106,9 @@ let arrangementHandSignature = "";
 let rollAnimationTimer = null;
 let rollDisplayValue = null;
 let rollAnimationActive = false;
+let revealedCardModal = null;
+let cardUsePending = false;
+const acknowledgedRevealedCards = new Set();
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
 
@@ -355,6 +358,9 @@ async function rollTurn() {
 }
 
 function enterRoom(room, requestId) {
+  if (currentRoom?.code && currentRoom.code !== room.code) {
+    resetRevealedCardUi();
+  }
   renderRoom(room, requestId);
   history.replaceState(null, "", `#room=${room.code}`);
   lobbyView.classList.add("hidden");
@@ -365,6 +371,7 @@ function enterRoom(room, requestId) {
 function showLobby() {
   closeSettingsMenu();
   stopRoomPolling();
+  resetRevealedCardUi();
   currentRoom = null;
   lobbyView.classList.remove("hidden");
   roomView.classList.add("hidden");
@@ -384,12 +391,17 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
       active: rollAnimationActive,
       displayValue: rollDisplayValue
     },
+    revealedCardModal,
+    cardUsePending,
+    acknowledgedRevealedCards,
     currentRoom: room,
     requestId,
     appliedRoomRequestId,
     callbacks: {
+      closeRevealedCardModal,
       draftCard,
       handleTargetCardClick,
+      useRevealedCard,
       resetArrangement,
       syncArrangement,
       moveArrangementCard
@@ -542,12 +554,95 @@ function randomDiceFace() {
   return Math.floor(Math.random() * 6) + 1;
 }
 
-function handleTargetCardClick(position) {
-  if (pendingAction) {
+function getRevealedTargetModal(game, position) {
+  const lastRoll = game?.dice?.lastRoll;
+  const targetPosition = Number(lastRoll?.position ?? lastRoll?.result);
+  const roomCode = currentRoom?.code;
+  if (!roomCode || !Number.isInteger(targetPosition) || targetPosition !== position || lastRoll?.playerId !== playerId) {
+    return null;
+  }
+
+  const self = Array.isArray(game?.players) ? game.players.find((player) => player.id === playerId) : null;
+  const card = Array.isArray(self?.receivedCards)
+    ? self.receivedCards.find((candidate) => candidate?.position === position) || null
+    : null;
+  if (!card?.revealed) {
+    return null;
+  }
+
+  return {
+    key: getRevealedCardKey(roomCode, playerId, position, card, lastRoll),
+    playerId,
+    position
+  };
+}
+
+function getRevealedCardKey(roomCode, targetPlayerId, position, card, lastRoll) {
+  const cardId = card?.instanceId || card?.id || "card";
+  const rollResult = lastRoll?.result ?? lastRoll?.position ?? "roll";
+  return `${roomCode}:${targetPlayerId}:${position}:${cardId}:${rollResult}`;
+}
+
+function useRevealedCard() {
+  if (!revealedCardModal || pendingAction || cardUsePending) {
     return;
   }
 
-  roomMessage.textContent = `第 ${position} 張牌已由後端回合結果處理。`;
+  cardUsePending = true;
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
+
+  window.setTimeout(() => {
+    if (revealedCardModal) {
+      acknowledgedRevealedCards.add(revealedCardModal.key);
+    }
+    revealedCardModal = null;
+    cardUsePending = false;
+    roomMessage.textContent = "卡牌效果已由後端回合結果套用。";
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+  }, 120);
+}
+
+function closeRevealedCardModal() {
+  if (cardUsePending) {
+    return;
+  }
+
+  revealedCardModal = null;
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
+}
+
+function resetRevealedCardUi() {
+  revealedCardModal = null;
+  cardUsePending = false;
+}
+
+function handleTargetCardClick(position) {
+  if (pendingAction || cardUsePending) {
+    return;
+  }
+
+  const modal = getRevealedTargetModal(currentRoom?.game, position);
+  if (!modal) {
+    roomMessage.textContent = "這張牌尚未公開，不能使用。";
+    return;
+  }
+
+  if (acknowledgedRevealedCards.has(modal.key)) {
+    roomMessage.textContent = "這張牌已使用。";
+    return;
+  }
+
+  revealedCardModal = modal;
+  roomMessage.textContent = "";
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
 }
 
 function syncArrangement(hand) {
