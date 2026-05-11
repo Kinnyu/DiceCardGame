@@ -30,8 +30,6 @@ const rollButton = document.querySelector("#rollButton");
 const lobbyMessage = document.querySelector("#lobbyMessage");
 const roomMessage = document.querySelector("#roomMessage");
 const playerList = document.querySelector("#playerList");
-const roomStatus = document.querySelector("#roomStatus");
-const playerCount = document.querySelector("#playerCount");
 const gamePanel = document.querySelector("#gamePanel");
 const gamePhaseTitle = document.querySelector("#gamePhaseTitle");
 const turnIndicator = document.querySelector("#turnIndicator");
@@ -71,8 +69,6 @@ const elements = {
   lobbyMessage,
   roomMessage,
   playerList,
-  roomStatus,
-  playerCount,
   gamePanel,
   gamePhaseTitle,
   turnIndicator,

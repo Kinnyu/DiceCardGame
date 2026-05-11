@@ -8,8 +8,6 @@ export function renderRoom(room, context) {
 
   elements.settingsRoomCode.textContent = room.code;
   elements.copyCodeButton.textContent = "複製房號";
-  elements.roomStatus.textContent = getRoomStatusText(room);
-  elements.playerCount.textContent = `${room.players.length} / 4`;
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";
   elements.startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
   renderPlayers(room, context);
@@ -42,13 +40,6 @@ export function renderPlayers(room, context) {
       return item;
     })
   );
-}
-
-export function getRoomStatusText(room) {
-  if (room.game?.phase) {
-    return getPhaseTitle(room.game.phase);
-  }
-  return room.status === "playing" ? "遊戲進行中" : "等待玩家";
 }
 
 export function getPlayerNameById(id, room) {

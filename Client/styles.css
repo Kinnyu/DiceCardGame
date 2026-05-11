@@ -530,25 +530,6 @@ button:disabled {
   letter-spacing: 0.08em;
 }
 
-.status-strip {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 9px;
-  border: 1px solid #cfe4d6;
-  border-radius: 8px;
-  background: var(--green-soft);
-  color: #1f5f45;
-  font-size: 0.82rem;
-  font-weight: 850;
-}
-
-.shell:has(#gamePanel:not(.hidden)) .status-strip {
-  padding: 6px 8px;
-  background: #f8fbf9;
-  font-size: 0.78rem;
-}
-
 .player-list {
   display: grid;
   gap: 6px;
@@ -1596,20 +1577,6 @@ button.position-card:hover:not(:disabled),
 
   .compact-button {
     min-height: 30px;
-  }
-
-  .shell:has(#gamePanel:not(.hidden)) .status-strip {
-    min-width: 0;
-    align-items: center;
-    gap: 8px;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .shell:has(#gamePanel:not(.hidden)) .status-strip span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .room-panel:has(#turnPanel:not(.hidden)) .player-list {
