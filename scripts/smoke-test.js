@@ -34,9 +34,24 @@ try {
   const started = startedResponse.payload;
   assert(started.room.status === "playing", "host should be able to start the game");
   assert(started.room.game?.phase === "drafting", "start should create a drafting game state");
+  assertPublicViewDoesNotLeakSecrets(started.room.game, "unscoped start response");
+
+  const draftView = (await get(`/api/rooms/${code}?playerId=player-one`)).payload;
+  assertViewerOnlySeesOwnDraftAndHand(draftView.room.game, "player-one");
 
   const playerOneDrafted = await draftSixCards(code, "player-one");
   assert(playerOneDrafted.room.game.phase === "drafting", "game should wait for second player draft");
+
+  const extraDraftCardId = draftView.room.game.players
+    .find((player) => player.id === "player-one")
+    .draftCards.at(6).instanceId;
+  const extraDraft = await post(`/api/rooms/${code}/draft`, {
+    playerId: "player-one",
+    cardInstanceId: extraDraftCardId
+  });
+  assert(extraDraft.status === 409, "player should not draft a seventh card");
+  assert(extraDraft.payload.error, "seventh draft should return an error key");
+
   const playerTwoDrafted = await draftSixCards(code, "player-two");
   assert(playerTwoDrafted.room.game.phase === "arranging", "both drafts should enter arranging");
 
@@ -51,6 +66,13 @@ try {
   assert(playerOneArranged.status === 200, "first player arrange should return 200");
   assert(playerOneArranged.payload.room.game.phase === "arranging", "game should wait for second arrangement");
 
+  const repeatArrange = await post(`/api/rooms/${code}/arrange`, {
+    playerId: "player-one",
+    cardInstanceIds: playerOneHand.map((card) => card.instanceId)
+  });
+  assert(repeatArrange.status === 409, "arranged player should not arrange again");
+  assert(repeatArrange.payload.error, "repeat arrange should return an error key");
+
   const playerTwoView = (await get(`/api/rooms/${code}?playerId=player-two`)).payload;
   const playerTwoHand = playerTwoView.room.game.players.find((player) => player.id === "player-two").hand;
   assert(playerTwoHand.length === 6, "second player should see their hand before arranging");
@@ -61,16 +83,38 @@ try {
   });
   assert(playerTwoArranged.status === 200, "second player arrange should return 200");
   assert(playerTwoArranged.payload.room.game.phase === "playing", "both arrangements should start turns");
+  assertViewerCannotSeeOtherPlayerHiddenCards(playerTwoArranged.payload.room.game, "player-two");
 
   const turnPlayerId = playerTwoArranged.payload.room.game.turnPlayerId;
+  const nonTurnPlayerId = turnPlayerId === "player-one" ? "player-two" : "player-one";
+  const rejectedTurn = await post(`/api/rooms/${code}/turn`, { playerId: nonTurnPlayerId });
+  assert(rejectedTurn.status === 409, "non-current player turn should be rejected");
+  assert(rejectedTurn.payload.error, "non-current player turn should return an error key");
+
+  const beforeTurnView = (await get(`/api/rooms/${code}?playerId=${encodeURIComponent(turnPlayerId)}`)).payload;
+  const beforeTurnPlayer = beforeTurnView.room.game.players.find((player) => player.id === turnPlayerId);
+  const beforeScore = beforeTurnPlayer.score;
+
   const turn = await post(`/api/rooms/${code}/turn`, { playerId: turnPlayerId });
   assert(turn.status === 200, "current player turn should return 200");
   assert(turn.payload.turn.playerId === turnPlayerId, "turn response should identify the acting player");
   assert(turn.payload.room.game.dice.lastRoll?.playerId === turnPlayerId, "turn response should include last roll");
+  assert(turn.payload.turn.position >= 1 && turn.payload.turn.position <= 6, "turn should resolve a target card position");
 
-  console.log("Smoke test passed.");
+  const afterTurnPlayer = turn.payload.room.game.players.find((player) => player.id === turnPlayerId);
+  const revealedCard = afterTurnPlayer.receivedCards.find((card) => card.position === turn.payload.turn.position);
+  assert(revealedCard?.revealed === true, "target card should be revealed after the turn resolves");
+  assert(afterTurnPlayer.usedPositions.includes(turn.payload.turn.position), "target position should be marked used");
+  assert(
+    afterTurnPlayer.score === beforeScore + turn.payload.turn.scoreDelta,
+    "score should update from backend turn result"
+  );
+  assertViewerCannotSeeOtherPlayerHiddenCards(turn.payload.room.game, turnPlayerId);
+
+  console.log("Smoke test passed. Note: this is an API-level frontend flow smoke test, not a browser automation run.");
 } finally {
   server.kill();
+  await onceExit(server);
 }
 
 async function waitForServer() {
@@ -142,9 +186,6 @@ async function draftSixCards(code, playerId) {
 
 async function readJson(response) {
   const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status} ${JSON.stringify(payload)}`);
-  }
   return { status: response.status, payload };
 }
 
@@ -152,4 +193,69 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function assertViewerOnlySeesOwnDraftAndHand(game, viewerPlayerId) {
+  const viewer = game.players.find((player) => player.id === viewerPlayerId);
+  const otherPlayers = game.players.filter((player) => player.id !== viewerPlayerId);
+
+  assert(viewer.draftCards.length === 10, "viewer should see their own ten draft cards");
+  assert(viewer.hand.length === 6, "viewer should see their own current hand");
+  for (const otherPlayer of otherPlayers) {
+    assert(!Object.hasOwn(otherPlayer, "draftCards"), "viewer should not see another player's draft cards");
+    assert(!Object.hasOwn(otherPlayer, "selectedDraftCards"), "viewer should not see another player's selected draft cards");
+    assert(!Object.hasOwn(otherPlayer, "hand"), "viewer should not see another player's hand");
+  }
+}
+
+function assertViewerCannotSeeOtherPlayerHiddenCards(game, viewerPlayerId) {
+  for (const player of game.players) {
+    if (player.id === viewerPlayerId) {
+      continue;
+    }
+
+    assert(!Object.hasOwn(player, "hand"), "playing view should not expose another player's hand");
+    assert(!Object.hasOwn(player, "draftCards"), "playing view should not expose another player's draft candidates");
+    assert(!Object.hasOwn(player, "selectedDraftCards"), "playing view should not expose another player's selected draft cards");
+    for (const card of player.receivedCards) {
+      if (card?.revealed === false) {
+        assertHiddenCardIsSafe(card, "other player's hidden received card");
+      }
+    }
+  }
+}
+
+function assertPublicViewDoesNotLeakSecrets(game, message) {
+  for (const player of game.players) {
+    assert(!Object.hasOwn(player, "hand"), `${message} should not expose player hands`);
+    assert(!Object.hasOwn(player, "draftCards"), `${message} should not expose draft candidates`);
+    assert(!Object.hasOwn(player, "selectedDraftCards"), `${message} should not expose selected draft cards`);
+    for (const card of [...player.arrangedCards, ...player.receivedCards]) {
+      if (card?.revealed === false) {
+        assertHiddenCardIsSafe(card, message);
+      }
+    }
+  }
+}
+
+function assertHiddenCardIsSafe(card, message) {
+  assert(Object.hasOwn(card, "position"), `${message} may expose position`);
+  assert(Object.hasOwn(card, "revealed"), `${message} may expose revealed state`);
+  assert(!Object.hasOwn(card, "id"), `${message} should not expose card id`);
+  assert(!Object.hasOwn(card, "instanceId"), `${message} should not expose instance id`);
+  assert(!Object.hasOwn(card, "name"), `${message} should not expose card name`);
+  assert(!Object.hasOwn(card, "type"), `${message} should not expose card type`);
+  assert(!Object.hasOwn(card, "value"), `${message} should not expose card value`);
+  assert(!Object.hasOwn(card, "description"), `${message} should not expose card description`);
+  assert(!Object.hasOwn(card, "effect"), `${message} should not expose legacy effect`);
+}
+
+function onceExit(childProcess) {
+  if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    childProcess.once("exit", resolve);
+  });
 }
