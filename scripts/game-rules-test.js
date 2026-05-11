@@ -24,10 +24,12 @@ import {
   GAME_PHASE_FINISHED,
   GAME_PHASE_PLAYING,
   passArrangedCardsRight,
+  recordDiceRoll,
   revealCardAtDiceResult,
   revealCardAtPosition,
   resolveGameEnd,
   selectDraftCard,
+  useCardAtPosition,
   updatePlayerScore
 } from "../lib/game-rules.js";
 
@@ -495,20 +497,37 @@ function testRevealDiceScoreAndTurn() {
   const startingScore = player.score;
   const targetCard = player.receivedCards.find((card) => card.position === 1);
 
-  const result = revealCardAtDiceResult(game, player.id, 1);
+  const rollResult = recordDiceRoll(game, player.id, 1);
 
+  assert(!rollResult.error, "valid dice result should record a pending turn");
+  assert(game.dice.lastRoll.position === 1, "roll should record the target position");
+  assert(game.dice.lastRoll.status === "pending", "roll should leave the card pending");
+  assert(targetCard.revealed === false, "roll should not reveal the target card");
+  assert(!player.usedPositions.includes(1), "roll should not mark the position used");
+  assert(player.score === startingScore, "roll should not update score");
+  assert(game.turnPlayerId === player.id, "roll should not advance the turn");
+
+  const result = revealCardAtDiceResult(game, player.id, 1);
   assert(!result.error, "valid dice result should reveal a card");
   assert(result.card === targetCard, "reveal should return the card at the dice position");
   assert(targetCard.faceUp === true && targetCard.revealed === true, "revealed card should be face up");
-  assert(player.usedPositions.includes(1), "revealed position should be marked used");
-  assert(player.score === startingScore + targetCard.value, "score card should update player score");
-  assert(result.scoreDelta === targetCard.value, "reveal should report score delta");
-  assert(game.turnPlayerId === nextPlayer.id, "turn should advance after a non-finishing reveal");
+  assert(!player.usedPositions.includes(1), "revealed position should not be marked used yet");
+  assert(player.score === startingScore, "reveal should not update player score");
+  assert(game.turnPlayerId === player.id, "reveal should not advance the turn");
 
+  const useResult = useCardAtPosition(game, player.id, 1);
+  assert(!useResult.error, "use should resolve a revealed target card");
+  assert(player.usedPositions.includes(1), "use should mark the position used");
+  assert(player.score === startingScore + targetCard.value, "use should update player score");
+  assert(useResult.scoreDelta === targetCard.value, "use should report score delta");
+  assert(game.turnPlayerId === nextPlayer.id, "turn should advance after use");
+
+  const nextRoll = recordDiceRoll(game, nextPlayer.id, 1);
+  assert(!nextRoll.error, "next player should be able to roll the same position on their own board");
   const repeated = revealCardAtPosition(game, nextPlayer.id, 1);
   assert(!repeated.error, "next player should be able to reveal the same position on their own board");
 
-  const invalidDice = revealCardAtDiceResult(game, game.turnPlayerId, 7);
+  const invalidDice = recordDiceRoll(game, game.turnPlayerId, 7);
   assert(invalidDice.error === "invalidDiceResult", "invalid dice result should be rejected");
 }
 
@@ -551,9 +570,15 @@ function testEliminationFinishesGameWithRemainingWinner() {
   ];
   winner.receivedCards = makePositionedCards("winner");
 
-  const result = revealCardAtPosition(game, player.id, 1);
+  const rollResult = recordDiceRoll(game, player.id, 1);
+  assert(!rollResult.error, "negative score card roll should record pending target");
+  const revealResult = revealCardAtPosition(game, player.id, 1);
+  assert(!revealResult.error, "negative score card should reveal before use");
+  assert(player.score === 1, "reveal should not eliminate before use");
 
-  assert(!result.error, "negative score card should reveal");
+  const result = useCardAtPosition(game, player.id, 1);
+
+  assert(!result.error, "negative score card should resolve on use");
   assert(result.eliminated === true, "score at or below zero should eliminate player");
   assert(player.score === 0, "eliminated player's score should clamp to zero");
   assert(game.phase === GAME_PHASE_FINISHED, "single remaining active player should finish the game");

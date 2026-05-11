@@ -5,8 +5,10 @@ import {
   fetchRoom,
   joinRoomRequest,
   leaveRoomRequest,
+  revealCardRequest,
   rollTurnRequest,
-  startGameRequest
+  startGameRequest,
+  useCardRequest
 } from "./api-client.js";
 import { getPlayerNameById, renderRoom as renderRoomView } from "./room-render.js";
 
@@ -348,7 +350,7 @@ async function rollTurn() {
     renderRoom(payload.room, requestId);
     if (payload.turn) {
       const playerName = getPlayerNameById(payload.turn.playerId, payload.room);
-      roomMessage.textContent = `${playerName} 擲出 ${payload.turn.diceResult}，翻開位置 ${payload.turn.position}。`;
+      roomMessage.textContent = `${playerName} 擲出 ${payload.turn.diceResult}，請點擊位置 ${payload.turn.position} 的牌。`;
     }
   } catch (error) {
     stopRollAnimation();
@@ -570,7 +572,7 @@ function randomDiceFace() {
   return Math.floor(Math.random() * 6) + 1;
 }
 
-function getRevealedTargetModal(game, position) {
+function getTargetModal(game, position) {
   const lastRoll = game?.dice?.lastRoll;
   const targetPosition = Number(lastRoll?.position ?? lastRoll?.result);
   const roomCode = currentRoom?.code;
@@ -582,12 +584,13 @@ function getRevealedTargetModal(game, position) {
   const card = Array.isArray(self?.receivedCards)
     ? self.receivedCards.find((candidate) => candidate?.position === position) || null
     : null;
-  if (!card?.revealed) {
+  if (!card) {
     return null;
   }
 
   return {
     key: getRevealedCardKey(roomCode, playerId, position, card, lastRoll),
+    revealed: Boolean(card.revealed),
     playerId,
     position
   };
@@ -599,8 +602,15 @@ function getRevealedCardKey(roomCode, targetPlayerId, position, card, lastRoll) 
   return `${roomCode}:${targetPlayerId}:${position}:${cardId}:${rollResult}`;
 }
 
-function useRevealedCard() {
+async function useRevealedCard() {
   if (!revealedCardModal || pendingAction || cardUsePending) {
+    return;
+  }
+
+  const code = currentRoom?.code;
+  const position = revealedCardModal.position;
+  const requestId = nextRoomRequestId();
+  if (!code || !position) {
     return;
   }
 
@@ -609,17 +619,22 @@ function useRevealedCard() {
     renderRoom(currentRoom, appliedRoomRequestId);
   }
 
-  window.setTimeout(() => {
+  try {
+    const payload = await useCardRequest(code, playerId, position);
     if (revealedCardModal) {
       acknowledgedRevealedCards.add(revealedCardModal.key);
     }
     revealedCardModal = null;
     cardUsePending = false;
-    roomMessage.textContent = "卡牌效果已由後端回合結果套用。";
+    roomMessage.textContent = "卡牌效果已套用。";
+    renderRoom(payload.room, requestId);
+  } catch (error) {
+    cardUsePending = false;
+    roomMessage.textContent = error.message;
     if (currentRoom) {
       renderRoom(currentRoom, appliedRoomRequestId);
     }
-  }, 120);
+  }
 }
 
 function closeRevealedCardModal() {
@@ -638,19 +653,36 @@ function resetRevealedCardUi() {
   cardUsePending = false;
 }
 
-function handleTargetCardClick(position) {
+async function handleTargetCardClick(position) {
   if (pendingAction || cardUsePending) {
     return;
   }
 
-  const modal = getRevealedTargetModal(currentRoom?.game, position);
+  const modal = getTargetModal(currentRoom?.game, position);
   if (!modal) {
-    roomMessage.textContent = "這張牌尚未公開，不能使用。";
+    roomMessage.textContent = "請點擊擲骰指定的位置牌。";
     return;
   }
 
   if (acknowledgedRevealedCards.has(modal.key)) {
     roomMessage.textContent = "這張牌已使用。";
+    return;
+  }
+
+  if (!modal.revealed) {
+    const code = currentRoom?.code;
+    const requestId = nextRoomRequestId();
+    setBusy("reveal", true);
+    try {
+      const payload = await revealCardRequest(code, playerId, position);
+      revealedCardModal = getTargetModal(payload.room?.game, position);
+      roomMessage.textContent = "";
+      renderRoom(payload.room, requestId);
+    } catch (error) {
+      roomMessage.textContent = error.message;
+    } finally {
+      setBusy("reveal", false);
+    }
     return;
   }
 

@@ -269,13 +269,16 @@ export function renderBoard(self, context) {
 
   const isMyTurn = game?.turnPlayerId === playerId;
   const noCardLeft = receivedCards.length > 0 && receivedCards.every((card) => card.used);
+  const hasPendingTarget = Boolean(targetHint?.isViewerTarget && !targetHint.isAcknowledged && !targetHint.isUsed);
   const eliminated = Boolean(self?.eliminated);
-  elements.rollButton.disabled = Boolean(pendingAction) || !isMyTurn || eliminated || noCardLeft;
+  elements.rollButton.disabled = Boolean(pendingAction) || !isMyTurn || eliminated || noCardLeft || hasPendingTarget;
 
   if (eliminated) {
     elements.turnHint.textContent = "你已被淘汰，可以繼續觀看其他玩家完成遊戲。";
   } else if (noCardLeft) {
     elements.turnHint.textContent = "你沒有可用卡牌，等待遊戲結算或其他玩家行動。";
+  } else if (targetHint?.isUsed) {
+    elements.turnHint.textContent = `第 ${targetHint.position} 張牌已使用`;
   } else if (targetHint?.isViewerTarget && targetHint.isOpen) {
     elements.turnHint.textContent = `第 ${targetHint.position} 張牌已翻開。`;
   } else if (targetHint?.isViewerTarget) {
@@ -343,13 +346,15 @@ function getTargetHint(game, context) {
     ? targetPlayer.receivedCards.find((card) => card?.position === position) || null
     : null;
   const isViewerTarget = targetPlayerId === context.playerId;
+  const isUsed = lastRoll?.status === "used" || Boolean(targetCard?.used);
   const isOpen = Boolean(targetCard?.used || targetCard?.revealed);
   const cardKey = getRevealedCardKey(context.currentRoom?.code, targetPlayerId, position, targetCard, lastRoll);
   const isAcknowledged = Boolean(cardKey && context.acknowledgedRevealedCards?.has(cardKey));
   const canClick =
     isViewerTarget &&
-    Boolean(targetCard?.revealed) &&
+    Boolean(targetCard && !targetCard.used) &&
     !isAcknowledged &&
+    !isUsed &&
     !targetPlayer?.eliminated &&
     !context.pendingAction;
 
@@ -357,6 +362,7 @@ function getTargetHint(game, context) {
     canClick,
     isAcknowledged,
     isOpen,
+    isUsed,
     isViewerTarget,
     playerId: targetPlayerId,
     position
@@ -374,6 +380,9 @@ function getRevealedCardKey(roomCode, targetPlayerId, position, card, lastRoll) 
 }
 
 function getTargetHintText(targetHint) {
+  if (targetHint.isUsed) {
+    return `第 ${targetHint.position} 張牌已使用`;
+  }
   if (targetHint.isAcknowledged) {
     return `第 ${targetHint.position} 張牌已使用`;
   }
@@ -393,9 +402,13 @@ function getRollControlState(game, context) {
   const self = game?.players?.find((player) => player.id === context.playerId);
   const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
   const noCardLeft = receivedCards.length > 0 && receivedCards.every((card) => card.used);
+  const lastRoll = game?.dice?.lastRoll;
 
   if (context.rollAnimation?.active) {
     return { message: "骰子跳動中，等待後端回傳正式點數。" };
+  }
+  if (lastRoll?.playerId === context.playerId && ["pending", "revealed"].includes(lastRoll.status)) {
+    return { message: "請點擊目標牌，按使用後才會結束回合。" };
   }
   if (self?.eliminated) {
     return { message: "你已被淘汰，可以繼續觀看牌桌。" };
@@ -404,7 +417,7 @@ function getRollControlState(game, context) {
     return { message: "你沒有可用卡牌，等待遊戲結算或其他玩家行動。" };
   }
   if (game?.turnPlayerId === context.playerId) {
-    return { message: "輪到你了，點擊擲骰後會以後端結果定格。" };
+    return { message: "輪到你了，擲骰後請點擊目標牌並按使用。" };
   }
   return { message: "等待目前回合玩家擲骰。" };
 }
@@ -635,7 +648,7 @@ function renderRevealedCardModal(game, context) {
   useButton.className = "primary-button card-use-button";
   useButton.type = "button";
   useButton.textContent = context.cardUsePending ? "使用中..." : "使用";
-  useButton.disabled = Boolean(context.cardUsePending) || modal.playerId !== context.playerId || card.type !== "score";
+  useButton.disabled = Boolean(context.cardUsePending) || modal.playerId !== context.playerId || !card.revealed;
   useButton.addEventListener("click", context.callbacks.useRevealedCard);
   actions.append(useButton);
 

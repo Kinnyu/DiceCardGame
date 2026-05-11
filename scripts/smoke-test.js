@@ -87,29 +87,106 @@ try {
 
   const turnPlayerId = playerTwoArranged.payload.room.game.turnPlayerId;
   const nonTurnPlayerId = turnPlayerId === "player-one" ? "player-two" : "player-one";
-  const rejectedTurn = await post(`/api/rooms/${code}/turn`, { playerId: nonTurnPlayerId });
-  assert(rejectedTurn.status === 409, "non-current player turn should be rejected");
-  assert(rejectedTurn.payload.error, "non-current player turn should return an error key");
+  const rejectedRoll = await post(`/api/rooms/${code}/roll`, { playerId: nonTurnPlayerId });
+  assert(rejectedRoll.status === 409, "non-current player roll should be rejected");
+  assert(rejectedRoll.payload.error, "non-current player roll should return an error key");
 
   const beforeTurnView = (await get(`/api/rooms/${code}?playerId=${encodeURIComponent(turnPlayerId)}`)).payload;
   const beforeTurnPlayer = beforeTurnView.room.game.players.find((player) => player.id === turnPlayerId);
   const beforeScore = beforeTurnPlayer.score;
+  const beforeUsedPositions = [...beforeTurnPlayer.usedPositions];
 
-  const turn = await post(`/api/rooms/${code}/turn`, { playerId: turnPlayerId });
-  assert(turn.status === 200, "current player turn should return 200");
-  assert(turn.payload.turn.playerId === turnPlayerId, "turn response should identify the acting player");
-  assert(turn.payload.room.game.dice.lastRoll?.playerId === turnPlayerId, "turn response should include last roll");
-  assert(turn.payload.turn.position >= 1 && turn.payload.turn.position <= 6, "turn should resolve a target card position");
+  const roll = await post(`/api/rooms/${code}/roll`, { playerId: turnPlayerId });
+  assert(roll.status === 200, "current player roll should return 200");
+  assert(roll.payload.turn.playerId === turnPlayerId, "roll response should identify the acting player");
+  assert(roll.payload.turn.status === "pending", "roll response should report pending status");
+  assert(roll.payload.room.game.dice.lastRoll?.playerId === turnPlayerId, "roll response should include last roll");
+  assert(roll.payload.room.game.dice.lastRoll?.status === "pending", "public last roll should be pending");
+  assert(roll.payload.turn.position >= 1 && roll.payload.turn.position <= 6, "roll should choose a target card position");
 
-  const afterTurnPlayer = turn.payload.room.game.players.find((player) => player.id === turnPlayerId);
-  const revealedCard = afterTurnPlayer.receivedCards.find((card) => card.position === turn.payload.turn.position);
-  assert(revealedCard?.revealed === true, "target card should be revealed after the turn resolves");
-  assert(afterTurnPlayer.usedPositions.includes(turn.payload.turn.position), "target position should be marked used");
+  const targetPosition = roll.payload.turn.position;
+  const wrongPosition = targetPosition === 1 ? 2 : 1;
+  const afterRollPlayer = roll.payload.room.game.players.find((player) => player.id === turnPlayerId);
+  const hiddenTargetCard = afterRollPlayer.receivedCards.find((card) => card.position === targetPosition);
+  assert(afterRollPlayer.score === beforeScore, "roll should not change score");
   assert(
-    afterTurnPlayer.score === beforeScore + turn.payload.turn.scoreDelta,
-    "score should update from backend turn result"
+    sameNumbers(afterRollPlayer.usedPositions, beforeUsedPositions),
+    "roll should not change used positions"
   );
-  assertViewerCannotSeeOtherPlayerHiddenCards(turn.payload.room.game, turnPlayerId);
+  assert(roll.payload.room.game.turnPlayerId === turnPlayerId, "roll should not advance turn player");
+  assertHiddenCardIsSafe(hiddenTargetCard, "rolled target card before reveal");
+  assertViewerCannotSeeOtherPlayerHiddenCards(roll.payload.room.game, turnPlayerId);
+
+  const rejectedRevealByOther = await post(`/api/rooms/${code}/reveal`, {
+    playerId: nonTurnPlayerId,
+    position: targetPosition
+  });
+  assert(rejectedRevealByOther.status === 409, "non-current player reveal should be rejected");
+  assert(rejectedRevealByOther.payload.error, "non-current player reveal should return an error key");
+
+  const rejectedRevealPosition = await post(`/api/rooms/${code}/reveal`, {
+    playerId: turnPlayerId,
+    position: wrongPosition
+  });
+  assert(rejectedRevealPosition.status === 409, "non-target reveal should be rejected");
+  assert(rejectedRevealPosition.payload.error, "non-target reveal should return an error key");
+
+  const rejectedUseByOther = await post(`/api/rooms/${code}/use`, {
+    playerId: nonTurnPlayerId,
+    position: targetPosition
+  });
+  assert(rejectedUseByOther.status === 409, "non-current player use should be rejected");
+  assert(rejectedUseByOther.payload.error, "non-current player use should return an error key");
+
+  const rejectedUsePosition = await post(`/api/rooms/${code}/use`, {
+    playerId: turnPlayerId,
+    position: wrongPosition
+  });
+  assert(rejectedUsePosition.status === 409, "non-target use should be rejected");
+  assert(rejectedUsePosition.payload.error, "non-target use should return an error key");
+
+  const reveal = await post(`/api/rooms/${code}/reveal`, {
+    playerId: turnPlayerId,
+    position: targetPosition
+  });
+  assert(reveal.status === 200, "current player reveal should return 200");
+  assert(reveal.payload.turn.status === "revealed", "reveal response should report revealed status");
+  assert(reveal.payload.room.game.dice.lastRoll?.status === "revealed", "public last roll should be revealed");
+
+  const afterRevealPlayer = reveal.payload.room.game.players.find((player) => player.id === turnPlayerId);
+  const revealedCard = afterRevealPlayer.receivedCards.find((card) => card.position === targetPosition);
+  assert(revealedCard?.revealed === true, "target card should be revealed after reveal");
+  assert(afterRevealPlayer.score === beforeScore, "reveal should not change score");
+  assert(
+    sameNumbers(afterRevealPlayer.usedPositions, beforeUsedPositions),
+    "reveal should not change used positions"
+  );
+  assert(reveal.payload.room.game.turnPlayerId === turnPlayerId, "reveal should not advance turn player");
+  assertViewerCannotSeeOtherPlayerHiddenCards(reveal.payload.room.game, turnPlayerId);
+
+  const use = await post(`/api/rooms/${code}/use`, {
+    playerId: turnPlayerId,
+    position: targetPosition
+  });
+  assert(use.status === 200, "current player use should return 200");
+  assert(use.payload.turn.status === "used", "use response should report used status");
+  assert(use.payload.room.game.dice.lastRoll?.status === "used", "public last roll should be used");
+
+  const afterUsePlayer = use.payload.room.game.players.find((player) => player.id === turnPlayerId);
+  assert(afterUsePlayer.usedPositions.includes(targetPosition), "target position should be marked used after use");
+  assert(
+    afterUsePlayer.score === beforeScore + use.payload.turn.scoreDelta,
+    "score should update from backend use result"
+  );
+  assert(use.payload.room.game.turnPlayerId === nonTurnPlayerId, "use should advance turn player");
+  assertViewerCannotSeeOtherPlayerHiddenCards(use.payload.room.game, turnPlayerId);
+
+  const usedAgain = await post(`/api/rooms/${code}/use`, {
+    playerId: turnPlayerId,
+    position: targetPosition
+  });
+  assert(usedAgain.status === 409, "used position should not be usable again");
+  assert(usedAgain.payload.error, "used position repeat use should return an error key");
 
   console.log("Smoke test passed. Note: this is an API-level frontend flow smoke test, not a browser automation run.");
 } finally {
@@ -239,6 +316,7 @@ function assertPublicViewDoesNotLeakSecrets(game, message) {
 }
 
 function assertHiddenCardIsSafe(card, message) {
+  assert(card, `${message} should exist`);
   assert(Object.hasOwn(card, "position"), `${message} may expose position`);
   assert(Object.hasOwn(card, "revealed"), `${message} may expose revealed state`);
   assert(!Object.hasOwn(card, "id"), `${message} should not expose card id`);
@@ -248,6 +326,10 @@ function assertHiddenCardIsSafe(card, message) {
   assert(!Object.hasOwn(card, "value"), `${message} should not expose card value`);
   assert(!Object.hasOwn(card, "description"), `${message} should not expose card description`);
   assert(!Object.hasOwn(card, "effect"), `${message} should not expose legacy effect`);
+}
+
+function sameNumbers(left, right) {
+  return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function onceExit(childProcess) {

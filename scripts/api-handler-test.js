@@ -424,20 +424,69 @@ async function testGameFlowApi() {
   assert(firstRoll.statusCode === 200, "current player should roll");
   assert(firstRoll.payload.turn.diceResult === 1, "roll should use server-generated dice");
   const oneAfterRoll = firstRoll.payload.room.game.players.find((player) => player.id === "one");
-  assert(
-    oneAfterRoll.score === oneScoreBeforeRoll + firstRoll.payload.turn.scoreDelta,
-    "score card should change the current player's score"
-  );
-  const revealedCard = firstRoll.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  assert(oneAfterRoll.score === oneScoreBeforeRoll, "roll should not change the current player's score");
+  assert(oneAfterRoll.usedPositions.length === 0, "roll should not mark the target position used");
+  assert(firstRoll.payload.room.game.turnPlayerId === "one", "roll should not advance the turn");
+  const hiddenAfterRoll = firstRoll.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  assertHiddenCardSafe(hiddenAfterRoll, "rolled but unrevealed target card");
+  assertNoSecretState(firstRoll.payload, "roll response should not expose secret state");
+
+  const wrongReveal = await callController(store, "POST", `${code}/reveal`, {
+    playerId: "two",
+    position: firstRoll.payload.turn.position
+  });
+  assert(wrongReveal.statusCode === 409, "non-current player should not reveal");
+
+  const wrongPositionReveal = await callController(store, "POST", `${code}/reveal`, {
+    playerId: "one",
+    position: 2
+  });
+  assert(wrongPositionReveal.statusCode === 409, "non-target position should not reveal");
+
+  const firstReveal = await callController(store, "POST", `${code}/reveal`, {
+    playerId: "one",
+    position: firstRoll.payload.turn.position
+  });
+  assert(firstReveal.statusCode === 200, "current player should reveal the target card");
+  const oneAfterReveal = firstReveal.payload.room.game.players.find((player) => player.id === "one");
+  assert(oneAfterReveal.score === oneScoreBeforeRoll, "reveal should not change score");
+  assert(oneAfterReveal.usedPositions.length === 0, "reveal should not mark the target position used");
+  assert(firstReveal.payload.room.game.turnPlayerId === "one", "reveal should not advance the turn");
+  const revealedCard = firstReveal.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
   assert(revealedCard.revealed === true, "revealed card should be revealed in public view");
   assert(revealedCard.type === "score", "revealed card should expose type");
-  assert(firstRoll.payload.turn.scoreDelta === revealedCard.value, "turn payload should report score delta");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value");
   assert(Object.hasOwn(revealedCard, "description"), "revealed card should expose description");
   assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect");
-  assertNoSecretState(firstRoll.payload, "roll response should not expose secret state");
+  assertNoSecretState(firstReveal.payload, "reveal response should not expose secret state");
 
-  const repeatedPosition = await callController(store, "POST", `${code}/turn`, { playerId: "two" }, () => 0);
+  const wrongUse = await callController(store, "POST", `${code}/use`, {
+    playerId: "two",
+    position: firstRoll.payload.turn.position
+  });
+  assert(wrongUse.statusCode === 409, "non-current player should not use");
+
+  const wrongPositionUse = await callController(store, "POST", `${code}/use`, {
+    playerId: "one",
+    position: 2
+  });
+  assert(wrongPositionUse.statusCode === 409, "non-target position should not use");
+
+  const firstUse = await callController(store, "POST", `${code}/use`, {
+    playerId: "one",
+    position: firstRoll.payload.turn.position
+  });
+  assert(firstUse.statusCode === 200, "current player should use the revealed target card");
+  const oneAfterUse = firstUse.payload.room.game.players.find((player) => player.id === "one");
+  assert(oneAfterUse.score === oneScoreBeforeRoll + firstUse.payload.turn.scoreDelta, "use should change score");
+  assert(oneAfterUse.usedPositions.includes(1), "use should mark the target position used");
+  assert(firstUse.payload.room.game.turnPlayerId === "two", "use should advance the turn");
+
+  const repeatedPositionRoll = await callController(store, "POST", `${code}/turn`, { playerId: "two" }, () => 0);
+  assert(repeatedPositionRoll.statusCode === 200, "other player can roll the same position on their own board");
+  const repeatedPositionReveal = await callController(store, "POST", `${code}/reveal`, { playerId: "two", position: 1 });
+  assert(repeatedPositionReveal.statusCode === 200, "other player can reveal the same position on their own board");
+  const repeatedPosition = await callController(store, "POST", `${code}/use`, { playerId: "two", position: 1 });
   assert(repeatedPosition.statusCode === 200, "other player can use the same position on their own board");
   const usedAgain = await callController(store, "POST", `${code}/roll`, { playerId: "one" }, () => 0);
   assert(usedAgain.statusCode === 409, "used position should not trigger again for the same player");
@@ -447,6 +496,16 @@ async function testGameFlowApi() {
     const playerId = index % 2 === 0 ? "one" : "two";
     const result = await callController(store, "POST", `${code}/roll`, { playerId }, finishRandom);
     assert(result.statusCode === 200, "remaining valid rolls should finish the game");
+    const revealed = await callController(store, "POST", `${code}/reveal`, {
+      playerId,
+      position: result.payload.turn.position
+    });
+    assert(revealed.statusCode === 200, "remaining valid reveals should succeed");
+    const used = await callController(store, "POST", `${code}/use`, {
+      playerId,
+      position: result.payload.turn.position
+    });
+    assert(used.statusCode === 200, "remaining valid uses should finish the game");
   }
 
   const finishedRoom = rooms.get(code);
@@ -484,8 +543,24 @@ async function testEliminationAndFinishedApiCoverage() {
   firstCard.value = -2;
   firstCard.description = "lose 2";
 
-  const eliminated = await callController(store, "POST", `${code}/roll`, { playerId: currentPlayer.id }, () => 0);
-  assert(eliminated.statusCode === 200, "eliminating roll should succeed");
+  const eliminatingRoll = await callController(store, "POST", `${code}/roll`, { playerId: currentPlayer.id }, () => 0);
+  assert(eliminatingRoll.statusCode === 200, "eliminating roll should succeed");
+  const eliminatingReveal = await callController(store, "POST", `${code}/reveal`, {
+    playerId: currentPlayer.id,
+    position: 1
+  });
+  assert(eliminatingReveal.statusCode === 200, "eliminating reveal should succeed without resolving score");
+  const revealedBeforeUse = eliminatingReveal.payload.room.game.players
+    .find((player) => player.id === currentPlayer.id)
+    .receivedCards.find((card) => card.position === 1);
+  assert(revealedBeforeUse.revealed === true, "eliminating card should reveal before use");
+  assert(eliminatingReveal.payload.room.game.phase === "playing", "reveal should not finish the game");
+
+  const eliminated = await callController(store, "POST", `${code}/use`, {
+    playerId: currentPlayer.id,
+    position: 1
+  });
+  assert(eliminated.statusCode === 200, "eliminating use should succeed");
   assert(eliminated.payload.turn.eliminated === true, "turn payload should report elimination");
   assert(eliminated.payload.turn.finished === true, "elimination should finish a two-player game");
   assert(eliminated.payload.turn.winnerIds.join(",") === winner.id, "remaining active player should win");
@@ -588,13 +663,16 @@ async function testViewerSpecificPublicViews() {
   assertHiddenCardSafe(hiddenCard, "unrevealed received card after pass");
 
   const turn = await callController(store, "POST", `${code}/turn`, { playerId: "one" }, () => 0);
-  const revealedCard = turn.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  const revealedTurn = await callController(store, "POST", `${code}/reveal`, { playerId: "one", position: 1 });
+  const revealedCard = revealedTurn.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
   assert(revealedCard.revealed === true, "resolved turn should reveal the selected card");
   assert(revealedCard.type === "score", "revealed card should expose type after turn");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value after turn");
   assert(Object.hasOwn(revealedCard, "description"), "revealed card should expose description after turn");
   assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect after turn");
-  assertNoSecretState(turn.payload, "turn response should not expose unrelated secret state");
+  const usedTurn = await callController(store, "POST", `${code}/use`, { playerId: "one", position: 1 });
+  assert(usedTurn.statusCode === 200, "viewer-specific use should resolve the revealed card");
+  assertNoSecretState(revealedTurn.payload, "turn response should not expose unrelated secret state");
 }
 
 async function testHandlerGetPassesPlayerIdQuery() {

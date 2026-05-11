@@ -71,3 +71,17 @@ export function rollTurnRequest(code, playerId) {
     body: JSON.stringify({ playerId })
   });
 }
+
+export function revealCardRequest(code, playerId, position) {
+  return requestJson(`/api/rooms/${code}/reveal`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, position })
+  });
+}
+
+export function useCardRequest(code, playerId, position) {
+  return requestJson(`/api/rooms/${code}/use`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, position })
+  });
+}
