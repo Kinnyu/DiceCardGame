@@ -476,8 +476,10 @@ button:disabled {
 
 .settings-menu {
   width: min(320px, 100%);
+  max-height: calc(100dvh - 56px);
   display: grid;
   gap: 14px;
+  overflow: auto;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -494,6 +496,11 @@ button:disabled {
 
 .settings-heading h3 {
   font-size: 1.1rem;
+}
+
+.settings-actions {
+  display: grid;
+  gap: 10px;
 }
 
 .settings-room-code {

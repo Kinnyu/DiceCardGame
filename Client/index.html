@@ -66,14 +66,16 @@
             <div class="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
               <div class="settings-heading">
                 <h3 id="settingsTitle">設定</h3>
-                <button id="settingsCloseButton" class="ghost-button compact-button" type="button">關閉</button>
               </div>
-              <div class="settings-room-code">
+              <div class="settings-room-code hidden">
                 <span>房號</span>
                 <strong id="settingsRoomCode"></strong>
               </div>
-              <button id="copyCodeButton" class="secondary-button full-width" type="button">複製房號</button>
-              <button id="leaveRoomButton" class="danger-button full-width" type="button">離開房間</button>
+              <button id="copyCodeButton" class="secondary-button full-width hidden" type="button">複製房號</button>
+              <div class="settings-actions">
+                <button id="settingsCloseButton" class="secondary-button full-width" type="button">繼續</button>
+                <button id="leaveRoomButton" class="danger-button full-width" type="button">退出房間</button>
+              </div>
             </div>
           </div>
         </div>

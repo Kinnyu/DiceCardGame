@@ -8,6 +8,7 @@ Dice Card Game lobby MVP. The first playable slice supports room creation, room 
 2. 點擊「開始遊戲」後，進入房間操作畫面。
 3. 在房間操作畫面輸入暱稱，建立房間或輸入房號加入房間。
 4. 成功建立或加入房間後，房間操作表單會隱藏，改顯示等待室或遊戲畫面。
+5. 進入房間後可用「設定」開啟選單，選擇「繼續」回到目前畫面，或「退出房間」回到初始首頁。
 
 ## Features
 
