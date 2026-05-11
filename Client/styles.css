@@ -61,6 +61,7 @@ input {
   width: min(1120px, calc(100% - 16px));
   grid-template-columns: 1fr;
   align-items: start;
+  padding: 8px 0;
 }
 
 .shell:has(#gamePanel:not(.hidden)) .brand-panel {
@@ -143,8 +144,8 @@ input {
 }
 
 .shell:has(#gamePanel:not(.hidden)) .room-panel {
-  gap: 10px;
-  padding: 14px;
+  gap: 6px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.96);
 }
 
@@ -499,8 +500,12 @@ button:disabled {
 }
 
 .settings-actions {
+  position: sticky;
+  bottom: 0;
   display: grid;
   gap: 10px;
+  padding-top: 4px;
+  background: #ffffff;
 }
 
 .settings-room-code {
@@ -655,6 +660,23 @@ button:disabled {
   background: rgba(255, 255, 255, 0.86);
 }
 
+.game-panel:has(#turnPanel:not(.hidden)) {
+  gap: 6px;
+  padding: 8px;
+}
+
+.game-panel:has(#turnPanel:not(.hidden)) > .dice-result,
+.game-panel:has(#turnPanel:not(.hidden)) > .game-section:not(#turnPanel) {
+  display: none;
+}
+
+.game-panel:has(#turnPanel:not(.hidden)) #turnPanel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  overflow: hidden;
+  padding: 8px;
+}
+
 .slot-grid,
 .hand-grid,
 .draft-grid {
@@ -676,6 +698,17 @@ button:disabled {
 
 .draft-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#draftPanel {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+#draftPanel .draft-grid {
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
 
 .position-card,
@@ -818,16 +851,16 @@ button.position-card:hover:not(:disabled),
 
 .tabletop-board {
   min-width: 0;
-  min-height: 430px;
+  min-height: 320px;
   display: grid;
   grid-template-columns: minmax(142px, 0.8fr) minmax(240px, 1.15fr) minmax(142px, 0.8fr);
-  grid-template-rows: minmax(112px, auto) minmax(150px, 1fr) minmax(128px, auto);
+  grid-template-rows: minmax(76px, auto) minmax(104px, 1fr) minmax(84px, auto);
   grid-template-areas:
     "left top right"
     "left center right"
     "self self self";
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px;
   border: 1px solid #cfe4d6;
   border-radius: 8px;
   background:
@@ -843,7 +876,7 @@ button.position-card:hover:not(:disabled),
 }
 
 .tabletop-board[data-opponent-count="2"] {
-  grid-template-rows: minmax(150px, 1fr) minmax(128px, auto);
+  grid-template-rows: minmax(104px, 1fr) minmax(84px, auto);
   grid-template-areas:
     "left center right"
     "self self self";
@@ -856,8 +889,8 @@ button.position-card:hover:not(:disabled),
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 6px;
-  padding: 12px;
+  gap: 5px;
+  padding: 10px;
   border: 1px dashed #aacdb5;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.58);
@@ -883,7 +916,7 @@ button.position-card:hover:not(:disabled),
 }
 
 .central-die {
-  width: clamp(58px, 8vw, 84px);
+  width: clamp(52px, 7vw, 72px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -945,8 +978,8 @@ button.position-card:hover:not(:disabled),
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: start;
-  gap: 8px;
-  padding: 9px;
+  gap: 5px;
+  padding: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
@@ -979,7 +1012,7 @@ button.position-card:hover:not(:disabled),
 
 .self-seat {
   grid-area: self;
-  padding: 10px;
+  padding: 6px;
 }
 
 .top-seat {
@@ -1004,7 +1037,7 @@ button.position-card:hover:not(:disabled),
 }
 
 .seat-avatar {
-  width: 30px;
+  width: 26px;
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -1072,7 +1105,7 @@ button.position-card:hover:not(:disabled),
 }
 
 .tabletop-board[data-opponent-count="3"] .top-seat .seat-card-row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .left-seat .seat-card-row,
@@ -1084,21 +1117,21 @@ button.position-card:hover:not(:disabled),
 .position-card.table-card {
   position: relative;
   min-height: 0;
-  height: 84px;
-  padding: 8px;
+  height: 56px;
+  padding: 5px;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
 }
 
 .opponent-seat .table-card {
-  height: 76px;
-  padding: 7px;
+  height: 52px;
+  padding: 5px;
 }
 
 .left-seat .table-card,
 .right-seat .table-card {
   height: 100%;
-  min-height: 70px;
+  min-height: 42px;
 }
 
 .table-card strong,
@@ -1185,7 +1218,9 @@ button.position-card:hover:not(:disabled),
 .card-modal {
   width: min(100%, 420px);
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
+  max-height: calc(100dvh - 40px);
   padding: 18px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -1215,6 +1250,8 @@ button.position-card:hover:not(:disabled),
   display: grid;
   align-content: start;
   gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1487,9 +1524,9 @@ button.position-card:hover:not(:disabled),
     min-height: 0;
     display: grid;
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: 6px;
     overflow: hidden;
-    padding: 8px;
+    padding: 6px;
   }
 
   .join-row {
@@ -1568,8 +1605,8 @@ button.position-card:hover:not(:disabled),
   }
 
   .game-panel {
-    gap: 8px;
-    padding: 8px;
+    gap: 6px;
+    padding: 6px;
   }
 
   .shell:has(#gamePanel:not(.hidden)) .game-panel {
@@ -1620,20 +1657,49 @@ button.position-card:hover:not(:disabled),
   .slot-grid,
   .hand-grid,
   .draft-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .shell:has(#gamePanel:not(.hidden)) .game-section {
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
+  }
+
+  .shell:has(#gamePanel:not(.hidden)) #draftPanel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .shell:has(#gamePanel:not(.hidden)) #draftPanel.hidden {
+    display: none !important;
+  }
+
+  .shell:has(#gamePanel:not(.hidden)) #draftPanel .draft-grid {
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
     overscroll-behavior: contain;
+    padding-right: 3px;
+  }
+
+  .shell:has(#gamePanel:not(.hidden)) #arrangePanel {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  #arrangePanel .slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #arrangePanel .hand-grid {
+    grid-template-columns: 1fr;
   }
 
   .shell:has(#gamePanel:not(.hidden)) #turnPanel {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
-    padding: 7px;
+    gap: 5px;
+    padding: 5px;
   }
 
   .shell:has(#gamePanel:not(.hidden)) #turnPanel.hidden {
@@ -1643,18 +1709,18 @@ button.position-card:hover:not(:disabled),
   .tabletop-board {
     min-height: 0;
     grid-template-columns: minmax(64px, 0.72fr) minmax(118px, 1fr) minmax(64px, 0.72fr);
-    grid-template-rows: minmax(76px, auto) minmax(126px, 1fr) minmax(82px, auto);
+    grid-template-rows: minmax(62px, auto) minmax(104px, 1fr) minmax(66px, auto);
     grid-template-areas:
       "left top right"
       "left center right"
       "self self self";
-    gap: 5px;
-    padding: 6px;
+    gap: 4px;
+    padding: 5px;
   }
 
   .tabletop-board[data-opponent-count="1"] {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(78px, auto) minmax(110px, 1fr) minmax(84px, auto);
+    grid-template-rows: minmax(62px, auto) minmax(96px, 1fr) minmax(66px, auto);
     grid-template-areas:
       "top"
       "center"
@@ -1665,7 +1731,7 @@ button.position-card:hover:not(:disabled),
     grid-template-areas:
       "left center right"
       "self self self";
-    grid-template-rows: minmax(126px, 1fr) minmax(82px, auto);
+    grid-template-rows: minmax(104px, 1fr) minmax(66px, auto);
   }
 
   .shell:has(#gamePanel:not(.hidden)) .tabletop-board {
@@ -1675,13 +1741,13 @@ button.position-card:hover:not(:disabled),
   .player-seat,
   .top-seat,
   .self-seat {
-    gap: 5px;
-    padding: 5px;
+    gap: 3px;
+    padding: 4px;
   }
 
   .table-center {
-    gap: 4px;
-    padding: 7px 5px;
+    gap: 3px;
+    padding: 5px 4px;
   }
 
   .table-center strong {
@@ -1695,13 +1761,13 @@ button.position-card:hover:not(:disabled),
   }
 
   .central-die {
-    width: 48px;
-    font-size: 1.55rem;
+    width: 40px;
+    font-size: 1.35rem;
   }
 
   .central-roll-button {
     min-width: 70px;
-    min-height: 34px;
+    min-height: 30px;
     padding: 0 8px;
   }
 
@@ -1739,13 +1805,13 @@ button.position-card:hover:not(:disabled),
   .top-seat .seat-card-row,
   .self-seat .seat-card-row {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 3px;
+    gap: 2px;
   }
 
   .left-seat .seat-card-row,
   .right-seat .seat-card-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 3px;
+    gap: 2px;
   }
 
   .position-card,
@@ -1759,16 +1825,16 @@ button.position-card:hover:not(:disabled),
   .table-card,
   .position-card.table-card,
   .opponent-seat .table-card {
-    height: 54px;
+    height: 40px;
     min-height: 0;
-    padding: 4px;
+    padding: 3px;
     gap: 2px;
   }
 
   .left-seat .table-card,
   .right-seat .table-card {
     height: 100%;
-    min-height: 38px;
+    min-height: 30px;
   }
 
   .table-card .card-position,
@@ -1790,8 +1856,11 @@ button.position-card:hover:not(:disabled),
   }
 
   .arrange-order-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
+    min-height: 72px;
+    gap: 5px;
+    padding: 7px;
   }
 
   .arrange-order-card .card-position,
@@ -1817,10 +1886,9 @@ button.position-card:hover:not(:disabled),
   }
 
   .score-list {
-    max-height: 118px;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding-right: 2px;
+    max-height: none;
+    overflow: hidden;
+    padding-right: 0;
   }
 
   .card-modal-backdrop {
@@ -1829,7 +1897,7 @@ button.position-card:hover:not(:disabled),
 
   .card-modal {
     max-height: calc(100dvh - 24px);
-    overflow: auto;
+    overflow: hidden;
   }
 
   .large-card {
