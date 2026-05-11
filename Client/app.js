@@ -389,6 +389,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     appliedRoomRequestId,
     callbacks: {
       draftCard,
+      handleTargetCardClick,
       resetArrangement,
       syncArrangement,
       moveArrangementCard
@@ -539,6 +540,14 @@ function stopRollAnimation() {
 
 function randomDiceFace() {
   return Math.floor(Math.random() * 6) + 1;
+}
+
+function handleTargetCardClick(position) {
+  if (pendingAction) {
+    return;
+  }
+
+  roomMessage.textContent = `第 ${position} 張牌已由後端回合結果處理。`;
 }
 
 function syncArrangement(hand) {

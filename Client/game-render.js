@@ -77,7 +77,9 @@ function renderDice(game, room, context) {
   }
 
   const rollerName = context.getPlayerNameById(lastRoll.playerId, room);
-  context.elements.diceResult.textContent = `骰子結果：${rollerName} 擲出 ${lastRoll.result}，位置 ${lastRoll.position}`;
+  const position = Number(lastRoll.position ?? lastRoll.result);
+  const positionText = Number.isInteger(position) && position >= 1 && position <= context.handSize ? position : "未知";
+  context.elements.diceResult.textContent = `骰子結果：${rollerName} 擲出 ${lastRoll.result}，位置 ${positionText}`;
 }
 
 export function renderDraftPanel(self, game, context) {
@@ -249,11 +251,14 @@ export function renderBoard(self, context) {
   const game = currentRoom?.game;
   const players = Array.isArray(game?.players) ? game.players : [];
   const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
+  const targetHint = getTargetHint(game, context);
 
   elements.boardCards.replaceChildren(
-    renderTableCenter(game, currentRoom, context),
-    ...getOpponentSeats(players, playerId).map((seat, index, seats) => renderPlayerSeat(seat, index, seats.length, context)),
-    renderPlayerSeat(self, -1, players.length - 1, context)
+    renderTableCenter(game, currentRoom, context, targetHint),
+    ...getOpponentSeats(players, playerId).map((seat, index, seats) =>
+      renderPlayerSeat(seat, index, seats.length, context, targetHint)
+    ),
+    renderPlayerSeat(self, -1, players.length - 1, context, targetHint)
   );
 
   const isMyTurn = game?.turnPlayerId === playerId;
@@ -265,6 +270,12 @@ export function renderBoard(self, context) {
     elements.turnHint.textContent = "你已被淘汰，可以繼續觀看其他玩家完成遊戲。";
   } else if (noCardLeft) {
     elements.turnHint.textContent = "你沒有可用卡牌，等待遊戲結算或其他玩家行動。";
+  } else if (targetHint?.isViewerTarget && targetHint.isOpen) {
+    elements.turnHint.textContent = `第 ${targetHint.position} 張牌已翻開。`;
+  } else if (targetHint?.isViewerTarget) {
+    elements.turnHint.textContent = `請點擊第 ${targetHint.position} 張牌。`;
+  } else if (targetHint) {
+    elements.turnHint.textContent = `等待玩家翻開第 ${targetHint.position} 張牌。`;
   } else if (isMyTurn) {
     elements.turnHint.textContent = "輪到你了，擲骰後會翻開對應位置。";
   } else {
@@ -272,7 +283,7 @@ export function renderBoard(self, context) {
   }
 }
 
-function renderTableCenter(game, room, context) {
+function renderTableCenter(game, room, context, targetHint) {
   const rollState = getRollControlState(game, context);
   const lastRoll = game?.dice?.lastRoll;
   const displayValue = context.rollAnimation?.active ? context.rollAnimation.displayValue : lastRoll?.result;
@@ -298,12 +309,59 @@ function renderTableCenter(game, room, context) {
   reserve.textContent = rollState.message;
   center.append(reserve);
 
+  if (targetHint) {
+    const target = document.createElement("p");
+    target.className = `target-card-hint${targetHint.canClick ? " actionable" : ""}`;
+    target.textContent = getTargetHintText(targetHint);
+    center.append(target);
+  }
+
   const rollButton = context.elements.rollButton;
   rollButton.className = "primary-button central-roll-button";
   rollButton.textContent = context.rollAnimation?.active ? "擲骰中..." : "擲骰";
   center.append(rollButton);
 
   return center;
+}
+
+function getTargetHint(game, context) {
+  const lastRoll = game?.dice?.lastRoll;
+  const position = Number(lastRoll?.position ?? lastRoll?.result);
+  if (!Number.isInteger(position) || position < 1 || position > context.handSize || context.rollAnimation?.active) {
+    return null;
+  }
+
+  const targetPlayerId = lastRoll?.playerId || "";
+  const targetPlayer = game.players.find((player) => player.id === targetPlayerId) || null;
+  const targetCard = Array.isArray(targetPlayer?.receivedCards)
+    ? targetPlayer.receivedCards.find((card) => card?.position === position) || null
+    : null;
+  const isViewerTarget = targetPlayerId === context.playerId;
+  const isOpen = Boolean(targetCard?.used || targetCard?.revealed);
+  const canClick =
+    isViewerTarget &&
+    game.turnPlayerId === context.playerId &&
+    !isOpen &&
+    !targetPlayer?.eliminated &&
+    !context.pendingAction;
+
+  return {
+    canClick,
+    isOpen,
+    isViewerTarget,
+    playerId: targetPlayerId,
+    position
+  };
+}
+
+function getTargetHintText(targetHint) {
+  if (targetHint.isOpen) {
+    return `第 ${targetHint.position} 張牌已翻開`;
+  }
+  if (targetHint.isViewerTarget) {
+    return `請點擊第 ${targetHint.position} 張牌`;
+  }
+  return `等待玩家翻開第 ${targetHint.position} 張牌`;
 }
 
 function getRollControlState(game, context) {
@@ -338,7 +396,7 @@ function getOpponentSeats(players, playerId) {
     .filter((player) => player.id !== playerId);
 }
 
-function renderPlayerSeat(player, opponentIndex, opponentCount, context) {
+function renderPlayerSeat(player, opponentIndex, opponentCount, context, targetHint) {
   const isSelf = player?.id === context.playerId;
   const isTurn = Boolean(player?.id && context.currentRoom?.game?.turnPlayerId === player.id);
   const eliminated = Boolean(player?.eliminated);
@@ -388,7 +446,7 @@ function renderPlayerSeat(player, opponentIndex, opponentCount, context) {
 
   const cards = document.createElement("div");
   cards.className = "seat-card-row";
-  cards.replaceChildren(...renderSeatCards(player, context.handSize, isSelf));
+  cards.replaceChildren(...renderSeatCards(player, context.handSize, isSelf, targetHint, context));
   seat.append(cards);
 
   return seat;
@@ -411,19 +469,30 @@ function renderSeatBadge(text) {
   return badge;
 }
 
-function renderSeatCards(player, handSize, isSelf) {
+function renderSeatCards(player, handSize, isSelf, targetHint, context) {
   const receivedCards = Array.isArray(player?.receivedCards) ? player.receivedCards.filter(Boolean) : [];
   const cardsByPosition = new Map(receivedCards.map((card) => [card.position, card]));
 
   return Array.from({ length: handSize }, (_, index) => {
     const position = index + 1;
-    return renderBoardCard(cardsByPosition.get(position), position, isSelf);
+    const isTarget = targetHint?.playerId === player?.id && targetHint.position === position;
+    return renderBoardCard(cardsByPosition.get(position), position, {
+      canClick: Boolean(isTarget && targetHint?.canClick),
+      isSelf,
+      isTarget,
+      onClick: context.callbacks.handleTargetCardClick
+    });
   });
 }
 
-function renderBoardCard(card, position, isSelf = false) {
-  const item = document.createElement("div");
-  item.className = `position-card board-card table-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}`;
+function renderBoardCard(card, position, options = {}) {
+  const { canClick = false, isSelf = false, isTarget = false, onClick } = options;
+  const item = document.createElement(canClick ? "button" : "div");
+  item.className = `position-card board-card table-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}`;
+  if (canClick) {
+    item.type = "button";
+    item.addEventListener("click", () => onClick(position));
+  }
 
   const label = document.createElement("span");
   label.className = "card-position";

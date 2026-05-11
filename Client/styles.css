@@ -817,6 +817,21 @@ button.position-card:hover:not(:disabled),
   margin-top: 4px;
 }
 
+.target-card-hint {
+  padding: 8px 10px;
+  border: 1px solid #d6c79b;
+  border-radius: 8px;
+  background: var(--gold-soft);
+  color: #7b4c12;
+  font-weight: 900;
+}
+
+.target-card-hint.actionable {
+  border-color: #bcd1f2;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 @keyframes dice-hop {
   0%,
   100% {
@@ -988,6 +1003,23 @@ button.position-card:hover:not(:disabled),
   opacity: 0.58;
 }
 
+.table-card.target-card {
+  border-color: #e0b85d;
+  box-shadow:
+    0 0 0 3px rgba(177, 107, 22, 0.14),
+    0 10px 20px rgba(31, 38, 45, 0.08);
+}
+
+.table-card.target-card.clickable {
+  cursor: pointer;
+  animation: target-card-pulse 900ms ease-in-out infinite;
+}
+
+.table-card.target-card.clickable:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .used-marker {
   justify-self: start;
   border-radius: 999px;
@@ -1109,6 +1141,17 @@ button.position-card:hover:not(:disabled),
 
   .self-seat .seat-card-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@keyframes target-card-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
   }
 }
 
