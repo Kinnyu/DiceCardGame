@@ -13,8 +13,8 @@
           <span class="brand-card"></span>
           <span class="brand-die"></span>
         </div>
-        <h1 id="entryTitle">Dice Card<br />Game</h1>
-        <button id="entryStartButton" class="primary-button entry-start-button" type="button">開始遊戲</button>
+        <h1 id="entryTitle">骰卡傳遞</h1>
+        <button id="entryStartButton" class="primary-button entry-start-button" type="button">開始</button>
       </section>
 
       <section class="brand-panel" aria-label="Game preview">
@@ -75,10 +75,15 @@
                 <span>房號</span>
                 <strong id="settingsRoomCode"></strong>
               </div>
-              <button id="copyCodeButton" class="secondary-button full-width" type="button">複製房號</button>
+              <div class="settings-room-code">
+                <span>玩家</span>
+                <strong id="settingsPlayerCount"></strong>
+              </div>
               <div class="settings-actions">
-                <button id="settingsCloseButton" class="primary-button full-width" type="button">關閉設定</button>
+                <button id="returnToLobbyButton" class="secondary-button full-width" type="button">回到 Lobby</button>
+                <button id="settingsCancelButton" class="secondary-button full-width" type="button">取消</button>
                 <button id="leaveRoomButton" class="danger-button full-width" type="button">離開房間</button>
+                <button id="settingsCloseButton" class="primary-button full-width" type="button">關閉設定</button>
               </div>
             </div>
           </div>

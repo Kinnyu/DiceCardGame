@@ -10,8 +10,7 @@ export function renderRoom(room, context) {
   elements.roomView.dataset.playerCount = String(room.players.length);
   elements.roomCodeDisplay.textContent = room.code;
   elements.settingsRoomCode.textContent = room.code;
-  elements.copyCodeButton.textContent = "複製房號";
-  elements.roomCopyCodeButton.textContent = "複製";
+  elements.settingsPlayerCount.textContent = `${room.players.length} 人`;
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";
   elements.startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
   renderPlayers(room, context);

@@ -4334,6 +4334,10 @@ button {
   gap: 8px;
 }
 
+.card-modal-actions.single-action .card-cancel-button {
+  grid-column: 1 / -1;
+}
+
 @media (min-width: 700px) {
   body::before {
     width: min(100%, 430px);
@@ -4365,4 +4369,169 @@ button {
   .entry-view {
     min-height: calc(100dvh - 206px);
   }
+}
+
+/* Start Screen P0 */
+body:has(#entryView:not(.hidden))::before {
+  width: min(100%, 390px);
+  background:
+    radial-gradient(circle at 26% 18%, rgba(36, 49, 40, 0.045) 0 1.7px, transparent 2px),
+    radial-gradient(circle at 70% 38%, rgba(36, 49, 40, 0.04) 0 1.7px, transparent 2px),
+    radial-gradient(circle at 42% 78%, rgba(36, 49, 40, 0.04) 0 1.7px, transparent 2px),
+    repeating-linear-gradient(20deg, rgba(128, 104, 61, 0.03) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, #fbf3dd, #efdfba);
+}
+
+body:has(#entryView:not(.hidden))::after {
+  opacity: 0.76;
+  background:
+    radial-gradient(circle at 9% 8%, #392b1b 0 35px, transparent 36px),
+    radial-gradient(circle at 7% 6%, #f0dfbb 0 3px, transparent 4px),
+    radial-gradient(circle at 9% 8%, #f0dfbb 0 3px, transparent 4px),
+    linear-gradient(18deg, transparent 0 68%, rgba(246, 238, 217, 0.96) 68% 100%),
+    linear-gradient(18deg, transparent 0 64%, rgba(34, 49, 40, 0.88) 64% 100%),
+    radial-gradient(ellipse at 16% 79%, rgba(72, 99, 71, 0.55) 0 2px, transparent 3px),
+    radial-gradient(ellipse at 18% 82%, rgba(72, 99, 71, 0.5) 0 2px, transparent 3px),
+    radial-gradient(ellipse at 81% 77%, rgba(72, 99, 71, 0.5) 0 2px, transparent 3px),
+    radial-gradient(ellipse at 84% 80%, rgba(72, 99, 71, 0.45) 0 2px, transparent 3px),
+    linear-gradient(150deg, transparent 0 68%, rgba(110, 64, 42, 0.72) 68% 100%),
+    linear-gradient(150deg, transparent 0 72%, rgba(246, 238, 217, 0.94) 72% 100%);
+  background-size:
+    150px 150px,
+    150px 150px,
+    150px 150px,
+    112px 152px,
+    126px 158px,
+    92px 92px,
+    98px 98px,
+    92px 92px,
+    98px 98px,
+    128px 162px,
+    112px 150px;
+  background-position:
+    left -67px bottom -66px,
+    left -67px bottom -66px,
+    left -67px bottom -66px,
+    right -49px top -50px,
+    left -61px top -52px,
+    left -36px bottom 246px,
+    left -31px bottom 228px,
+    right -26px bottom 206px,
+    right -33px bottom 186px,
+    right -55px bottom -58px,
+    left -52px bottom -54px;
+  background-repeat: no-repeat;
+}
+
+.shell:has(#entryView:not(.hidden)) {
+  width: min(390px, 100%);
+  min-height: 100dvh;
+  padding: 103px 7px;
+  align-content: stretch;
+}
+
+.shell:has(#entryView:not(.hidden)) .entry-view {
+  min-height: calc(100dvh - 206px);
+  align-content: start;
+  grid-template-rows: auto auto auto;
+  gap: 0;
+  padding: clamp(86px, 17dvh, 140px) 24px 104px;
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-mark {
+  width: min(220px, 100%);
+  height: 58px;
+  margin-bottom: 23px;
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-mark::before,
+.shell:has(#entryView:not(.hidden)) .brand-mark::after {
+  position: absolute;
+  top: 38px;
+  width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(180, 149, 89, 0.74));
+  content: "";
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-mark::before {
+  left: 8px;
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-mark::after {
+  right: 8px;
+  transform: scaleX(-1);
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-card,
+.shell:has(#entryView:not(.hidden)) .brand-die {
+  width: 29px;
+  height: 42px;
+  border: 2px solid rgba(204, 174, 107, 0.72);
+  border-radius: 5px;
+  box-shadow: 0 5px 10px rgba(31, 25, 17, 0.18);
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-card {
+  left: calc(50% - 34px);
+  top: 13px;
+  background:
+    radial-gradient(circle at 50% 31%, rgba(226, 193, 115, 0.82) 0 3px, transparent 3.5px),
+    linear-gradient(180deg, transparent 48%, rgba(226, 193, 115, 0.74) 48% 56%, transparent 56%),
+    linear-gradient(180deg, #315d55, #173f3b);
+  transform: rotate(-8deg);
+}
+
+.shell:has(#entryView:not(.hidden)) .brand-die {
+  right: calc(50% - 34px);
+  top: 13px;
+  aspect-ratio: auto;
+  background:
+    radial-gradient(circle at 50% 31%, rgba(255, 238, 208, 0.88) 0 4px, transparent 4.5px),
+    radial-gradient(ellipse at 50% 45%, rgba(255, 238, 208, 0.85) 0 5px, transparent 5.5px),
+    linear-gradient(180deg, #a9553e, #88412f);
+  transform: rotate(8deg);
+}
+
+.shell:has(#entryView:not(.hidden)) .entry-view h1 {
+  max-width: 5em;
+  margin: 0;
+  color: #1f251e;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(3.08rem, 14.8vw, 4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.shell:has(#entryView:not(.hidden)) .entry-view h1::after {
+  display: block;
+  width: 182px;
+  height: 13px;
+  margin: 26px auto 0;
+  background:
+    radial-gradient(circle at center, var(--ref-gold) 0 3px, transparent 3.5px),
+    linear-gradient(var(--ref-gold) 0 0) left center / 78px 1px no-repeat,
+    linear-gradient(var(--ref-gold) 0 0) right center / 78px 1px no-repeat;
+  content: "";
+}
+
+.shell:has(#entryView:not(.hidden)) .entry-start-button {
+  width: 192px;
+  min-height: 58px;
+  margin-top: 78px;
+  border: 2px solid rgba(216, 190, 124, 0.9);
+  border-radius: 8px;
+  color: #fff5dc;
+  background: linear-gradient(180deg, #5c785e, #3f644e);
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.48rem;
+  font-weight: 650;
+  box-shadow:
+    inset 0 0 0 2px rgba(29, 52, 36, 0.24),
+    0 4px 10px rgba(31, 25, 17, 0.2);
+}
+
+.shell:has(#entryView:not(.hidden)) .entry-start-button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #668467, #486f57);
 }

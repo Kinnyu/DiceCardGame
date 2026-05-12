@@ -21,13 +21,15 @@ const roomCodeInput = document.querySelector("#roomCodeInput");
 const createRoomButton = document.querySelector("#createRoomButton");
 const joinRoomButton = document.querySelector("#joinRoomButton");
 const leaveRoomButton = document.querySelector("#leaveRoomButton");
+const returnToLobbyButton = document.querySelector("#returnToLobbyButton");
 const startGameButton = document.querySelector("#startGameButton");
-const copyCodeButton = document.querySelector("#copyCodeButton");
 const roomCopyCodeButton = document.querySelector("#roomCopyCodeButton");
 const settingsButton = document.querySelector("#settingsButton");
 const settingsMenu = document.querySelector("#settingsMenu");
 const settingsCloseButton = document.querySelector("#settingsCloseButton");
+const settingsCancelButton = document.querySelector("#settingsCancelButton");
 const settingsRoomCode = document.querySelector("#settingsRoomCode");
+const settingsPlayerCount = document.querySelector("#settingsPlayerCount");
 const roomCodeDisplay = document.querySelector("#roomCodeDisplay");
 const submitArrangeButton = document.querySelector("#submitArrangeButton");
 const rollButton = document.querySelector("#rollButton");
@@ -62,13 +64,15 @@ const elements = {
   createRoomButton,
   joinRoomButton,
   leaveRoomButton,
+  returnToLobbyButton,
   startGameButton,
-  copyCodeButton,
   roomCopyCodeButton,
   settingsButton,
   settingsMenu,
   settingsCloseButton,
+  settingsCancelButton,
   settingsRoomCode,
+  settingsPlayerCount,
   roomCodeDisplay,
   submitArrangeButton,
   rollButton,
@@ -97,6 +101,7 @@ const elements = {
 const playerId = getOrCreatePlayerId();
 const pollingMs = 1200;
 const handSize = 6;
+const copyFeedbackMs = 1800;
 
 let currentRoom = null;
 let roomPoll = null;
@@ -114,6 +119,7 @@ let rollDisplayValue = null;
 let rollAnimationActive = false;
 let revealedCardModal = null;
 let cardUsePending = false;
+let copyFeedbackResetTimer = null;
 const acknowledgedRevealedCards = new Set();
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
@@ -122,11 +128,12 @@ entryStartButton.addEventListener("click", showRoomActions);
 createRoomButton.addEventListener("click", createRoom);
 joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
+returnToLobbyButton.addEventListener("click", returnToLobby);
 startGameButton.addEventListener("click", startGame);
-copyCodeButton.addEventListener("click", copyRoomCode);
 roomCopyCodeButton.addEventListener("click", copyRoomCode);
 settingsButton.addEventListener("click", toggleSettingsMenu);
 settingsCloseButton.addEventListener("click", closeSettingsMenu);
+settingsCancelButton.addEventListener("click", closeSettingsMenu);
 settingsMenu.addEventListener("click", (event) => {
   if (event.target === settingsMenu) {
     closeSettingsMenu();
@@ -238,6 +245,30 @@ async function leaveRoom() {
   }
 }
 
+async function returnToLobby() {
+  if (!currentRoom) {
+    return;
+  }
+
+  closeSettingsMenu();
+  const code = currentRoom.code;
+  stopRoomPolling();
+  resetRevealedCardUi();
+  resetCopyRoomCodeFeedback();
+  currentRoom = null;
+  history.replaceState(null, "", location.pathname);
+  entryView.classList.add("hidden");
+  lobbyView.classList.remove("hidden");
+  roomView.classList.add("hidden");
+  roomMessage.textContent = "";
+
+  try {
+    await leaveRoomRequest(code, playerId);
+  } catch {
+    // Returning to the lobby is already complete locally; failed cleanup is non-blocking.
+  }
+}
+
 async function startGame() {
   if (!currentRoom) {
     return;
@@ -266,10 +297,34 @@ async function copyRoomCode() {
     return;
   }
 
-  await navigator.clipboard.writeText(currentRoom.code);
-  roomMessage.textContent = "房號已複製。";
-  copyCodeButton.textContent = "已複製";
-  roomCopyCodeButton.textContent = "已複製";
+  const roomCode = currentRoom.code;
+  clearCopyRoomCodeFeedbackTimer();
+  try {
+    await navigator.clipboard.writeText(roomCode);
+    roomMessage.textContent = "房號已複製。";
+    roomCopyCodeButton.textContent = "已複製";
+    copyFeedbackResetTimer = window.setTimeout(() => {
+      copyFeedbackResetTimer = null;
+      if (currentRoom?.code === roomCode) {
+        roomCopyCodeButton.textContent = "複製";
+      }
+    }, copyFeedbackMs);
+  } catch {
+    roomCopyCodeButton.textContent = "複製";
+    roomMessage.textContent = `無法自動複製，請手動複製房號：${roomCode}`;
+  }
+}
+
+function clearCopyRoomCodeFeedbackTimer() {
+  if (copyFeedbackResetTimer) {
+    window.clearTimeout(copyFeedbackResetTimer);
+    copyFeedbackResetTimer = null;
+  }
+}
+
+function resetCopyRoomCodeFeedback() {
+  clearCopyRoomCodeFeedbackTimer();
+  roomCopyCodeButton.textContent = "複製";
 }
 
 function toggleSettingsMenu() {
@@ -368,8 +423,9 @@ async function rollTurn() {
 }
 
 function enterRoom(room, requestId) {
-  if (currentRoom?.code && currentRoom.code !== room.code) {
+  if (currentRoom?.code !== room.code) {
     resetRevealedCardUi();
+    resetCopyRoomCodeFeedback();
   }
   renderRoom(room, requestId);
   history.replaceState(null, "", `#room=${room.code}`);
@@ -383,6 +439,7 @@ function showEntry() {
   closeSettingsMenu();
   stopRoomPolling();
   resetRevealedCardUi();
+  resetCopyRoomCodeFeedback();
   currentRoom = null;
   entryView.classList.remove("hidden");
   lobbyView.classList.add("hidden");
@@ -396,6 +453,7 @@ function showRoomActions() {
   closeSettingsMenu();
   stopRoomPolling();
   resetRevealedCardUi();
+  resetCopyRoomCodeFeedback();
   currentRoom = null;
   entryView.classList.add("hidden");
   lobbyView.classList.remove("hidden");

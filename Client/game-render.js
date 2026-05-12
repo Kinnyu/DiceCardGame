@@ -652,24 +652,30 @@ function renderRevealedCardModal(game, context) {
   metaList.append(renderMetaItem("狀態", card.used ? "已使用" : "已翻開"));
   dialog.append(metaList);
 
+  const canUseEffect = canUseRevealedCardEffect(game, modal, card, player, context);
   const actions = document.createElement("div");
-  actions.className = "card-modal-actions";
+  actions.className = `card-modal-actions${canUseEffect ? "" : " single-action"}`;
 
   const closeAction = document.createElement("button");
   closeAction.className = "secondary-button card-cancel-button";
   closeAction.type = "button";
   closeAction.textContent = "關閉";
   closeAction.disabled = Boolean(context.cardUsePending);
+  if (!canUseEffect) {
+    closeAction.classList.add("full-width");
+  }
   closeAction.addEventListener("click", context.callbacks.closeRevealedCardModal);
   actions.append(closeAction);
 
-  const useButton = document.createElement("button");
-  useButton.className = "primary-button card-use-button";
-  useButton.type = "button";
-  useButton.textContent = context.cardUsePending ? "使用中..." : "使用效果";
-  useButton.disabled = Boolean(context.cardUsePending) || modal.playerId !== context.playerId || !card.revealed;
-  useButton.addEventListener("click", context.callbacks.useRevealedCard);
-  actions.append(useButton);
+  if (canUseEffect) {
+    const useButton = document.createElement("button");
+    useButton.className = "primary-button card-use-button";
+    useButton.type = "button";
+    useButton.textContent = context.cardUsePending ? "使用中..." : "使用效果";
+    useButton.disabled = Boolean(context.cardUsePending);
+    useButton.addEventListener("click", context.callbacks.useRevealedCard);
+    actions.append(useButton);
+  }
 
   dialog.append(actions);
   backdrop.append(dialog);
@@ -677,6 +683,29 @@ function renderRevealedCardModal(game, context) {
   if (!existing) {
     context.elements.gamePanel.append(backdrop);
   }
+}
+
+function canUseRevealedCardEffect(game, modal, card, player, context) {
+  const position = Number(modal?.position);
+  const lastRoll = game?.dice?.lastRoll;
+  const isOwnCard = modal?.playerId === context.playerId && player?.id === context.playerId;
+  const isMyTurn = game?.turnPlayerId === context.playerId;
+  const isPendingCard =
+    lastRoll?.playerId === context.playerId &&
+    Number(lastRoll?.position ?? lastRoll?.result) === position &&
+    ["pending", "revealed"].includes(lastRoll?.status);
+  const cardKey = getRevealedCardKey(context.currentRoom?.code, modal?.playerId, position, card, lastRoll);
+  const acknowledged = Boolean(cardKey && context.acknowledgedRevealedCards?.has(cardKey));
+
+  return Boolean(
+    isOwnCard &&
+      isMyTurn &&
+      isPendingCard &&
+      card?.revealed &&
+      !card.used &&
+      !player?.eliminated &&
+      !acknowledged
+  );
 }
 
 function renderMetaItem(label, value) {
