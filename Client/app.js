@@ -23,10 +23,12 @@ const joinRoomButton = document.querySelector("#joinRoomButton");
 const leaveRoomButton = document.querySelector("#leaveRoomButton");
 const startGameButton = document.querySelector("#startGameButton");
 const copyCodeButton = document.querySelector("#copyCodeButton");
+const roomCopyCodeButton = document.querySelector("#roomCopyCodeButton");
 const settingsButton = document.querySelector("#settingsButton");
 const settingsMenu = document.querySelector("#settingsMenu");
 const settingsCloseButton = document.querySelector("#settingsCloseButton");
 const settingsRoomCode = document.querySelector("#settingsRoomCode");
+const roomCodeDisplay = document.querySelector("#roomCodeDisplay");
 const submitArrangeButton = document.querySelector("#submitArrangeButton");
 const rollButton = document.querySelector("#rollButton");
 const lobbyMessage = document.querySelector("#lobbyMessage");
@@ -62,10 +64,12 @@ const elements = {
   leaveRoomButton,
   startGameButton,
   copyCodeButton,
+  roomCopyCodeButton,
   settingsButton,
   settingsMenu,
   settingsCloseButton,
   settingsRoomCode,
+  roomCodeDisplay,
   submitArrangeButton,
   rollButton,
   lobbyMessage,
@@ -120,6 +124,7 @@ joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
 startGameButton.addEventListener("click", startGame);
 copyCodeButton.addEventListener("click", copyRoomCode);
+roomCopyCodeButton.addEventListener("click", copyRoomCode);
 settingsButton.addEventListener("click", toggleSettingsMenu);
 settingsCloseButton.addEventListener("click", closeSettingsMenu);
 settingsMenu.addEventListener("click", (event) => {
@@ -262,7 +267,9 @@ async function copyRoomCode() {
   }
 
   await navigator.clipboard.writeText(currentRoom.code);
-  roomMessage.textContent = "房號已複製";
+  roomMessage.textContent = "房號已複製。";
+  copyCodeButton.textContent = "已複製";
+  roomCopyCodeButton.textContent = "已複製";
 }
 
 function toggleSettingsMenu() {

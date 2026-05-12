@@ -7,11 +7,14 @@ export function renderGame(room, context) {
   if (!game) {
     callbacks.resetArrangement();
     elements.gamePanel.querySelector(".card-modal-backdrop")?.remove();
+    elements.roomView.dataset.phase = "waiting";
     return;
   }
 
   const self = getSelfGamePlayer(game, context.playerId);
   const phase = game.phase || "";
+  elements.roomView.dataset.phase = phase || "waiting";
+  elements.gamePanel.dataset.phase = phase || "waiting";
   elements.gamePhaseTitle.textContent = context.getPhaseTitle(phase);
   renderTurnIndicator(game, self, room, context);
   renderDice(game, room, context);
@@ -52,13 +55,13 @@ function renderTurnIndicator(game, self, room, context) {
 
   if (game.phase === "drafting") {
     const waiting = game.players.filter((player) => getSelectedDraftCount(player) < context.handSize).length;
-    elements.turnIndicator.textContent = waiting > 0 ? `等待選牌：${waiting} 人` : "準備進入排序";
+    elements.turnIndicator.textContent = waiting > 0 ? `等待 ${waiting} 人` : "準備排牌";
     return;
   }
 
   if (game.phase === "arranging") {
     const waiting = game.players.filter((player) => player.handCount > 0).length;
-    elements.turnIndicator.textContent = waiting > 0 ? `等待排牌：${waiting} 人` : "準備進入回合";
+    elements.turnIndicator.textContent = waiting > 0 ? `等待 ${waiting} 人` : "準備回合";
     return;
   }
 
@@ -75,14 +78,14 @@ function renderTurnIndicator(game, self, room, context) {
 function renderDice(game, room, context) {
   const lastRoll = game.dice?.lastRoll;
   if (!lastRoll) {
-    context.elements.diceResult.textContent = "骰子結果：尚無";
+    context.elements.diceResult.textContent = "等待第一擲";
     return;
   }
 
   const rollerName = context.getPlayerNameById(lastRoll.playerId, room);
   const position = Number(lastRoll.position ?? lastRoll.result);
   const positionText = Number.isInteger(position) && position >= 1 && position <= context.handSize ? position : "未知";
-  context.elements.diceResult.textContent = `骰子結果：${rollerName} 擲出 ${lastRoll.result}，位置 ${positionText}`;
+  context.elements.diceResult.textContent = `${rollerName} 擲出 ${lastRoll.result}，指向第 ${positionText} 張`;
 }
 
 export function renderDraftPanel(self, game, context) {
@@ -103,9 +106,9 @@ export function renderDraftPanel(self, game, context) {
   if (draftComplete) {
     elements.draftHint.textContent = waitingOtherPlayers
       ? "已選滿 6 張，等待其他玩家完成選牌。"
-      : "已選滿 6 張，等待進入排序階段。";
+      : "已選滿 6 張，等待進入排牌階段。";
   } else {
-    elements.draftHint.textContent = `已選 ${selectedCount} / ${handSize} 張，請從候選牌中選擇。`;
+    elements.draftHint.textContent = `已選 ${selectedCount} / ${handSize} 張，挑選要帶上牌桌的手牌。`;
   }
 
   elements.draftCards.replaceChildren(
@@ -132,14 +135,14 @@ function renderDraftCard(card, options) {
   if (!isSelected) {
     const back = document.createElement("span");
     back.className = "draft-card-back";
-    back.textContent = `候選 ${index + 1}`;
+    back.textContent = `${index + 1}`;
     button.append(back);
     return button;
   }
 
   const label = document.createElement("span");
   label.className = "card-position";
-  label.textContent = "已選取";
+  label.textContent = "已選";
   button.append(label);
 
   const name = document.createElement("strong");
@@ -168,15 +171,15 @@ export function renderArrangePanel(self, context) {
   const alreadyArranged = arrangedCards.length >= handSize && hand.length === 0;
 
   if (alreadyArranged) {
-    elements.arrangeHint.textContent = "你已送出排列，等待其他玩家完成。";
+    elements.arrangeHint.textContent = "你已送出牌序，等待其他玩家。";
     elements.submitArrangeButton.disabled = true;
     elements.arrangeSlots.replaceChildren(...renderArrangedPreview(arrangedCards, handSize));
-    elements.handCards.replaceChildren(emptyState("等待其他玩家完成排序"));
+    elements.handCards.replaceChildren(emptyState("等待其他玩家完成排牌"));
     return;
   }
 
   if (!hand.length) {
-    elements.arrangeHint.textContent = "正在等待伺服器同步你的手牌。";
+    elements.arrangeHint.textContent = "正在等待手牌同步。";
     elements.submitArrangeButton.disabled = true;
     elements.arrangeSlots.replaceChildren(...renderEmptySlots(handSize));
     elements.handCards.replaceChildren(emptyState("尚未取得手牌"));
@@ -184,11 +187,11 @@ export function renderArrangePanel(self, context) {
   }
 
   callbacks.syncArrangement(hand);
-  elements.arrangeHint.textContent = `已排 ${arrangement.filter(Boolean).length} / ${handSize} 張，請用上移、下移調整第 1～6 位。`;
+  elements.arrangeHint.textContent = `已排 ${arrangement.filter(Boolean).length} / ${handSize} 張，使用上下按鈕調整順序。`;
   elements.arrangeSlots.replaceChildren(
     ...arrangement.map((card, index) => renderArrangeSlot(card, index, context))
   );
-  elements.handCards.replaceChildren(emptyState("送出後將等待其他玩家完成排序"));
+  elements.handCards.replaceChildren(emptyState("送出後將等待其他玩家完成排牌"));
   elements.submitArrangeButton.disabled =
     Boolean(pendingAction) ||
     arrangement.length !== handSize ||
@@ -202,7 +205,7 @@ function renderArrangeSlot(card, index, context) {
 
   const position = document.createElement("span");
   position.className = "card-position";
-  position.textContent = `第 ${index + 1} 位`;
+  position.textContent = `第 ${index + 1} 張`;
   item.append(position);
 
   const name = document.createElement("strong");
@@ -211,7 +214,7 @@ function renderArrangeSlot(card, index, context) {
 
   const effect = document.createElement("span");
   effect.className = "card-effect";
-  effect.textContent = card ? describeScoreEffect(card) : "尚未排牌";
+  effect.textContent = card ? describeScoreEffect(card) : "尚未放入卡牌";
   item.append(effect);
 
   if (card?.description) {
@@ -233,7 +236,8 @@ function renderArrangeCardControls(index, context) {
   const upButton = document.createElement("button");
   upButton.className = "secondary-button compact-button arrange-move-button";
   upButton.type = "button";
-  upButton.textContent = "上移";
+  upButton.textContent = "↑";
+  upButton.setAttribute("aria-label", `將第 ${index + 1} 張上移`);
   upButton.disabled = Boolean(context.pendingAction) || index === 0;
   upButton.addEventListener("click", () => context.callbacks.moveArrangementCard(index, index - 1));
   controls.append(upButton);
@@ -241,7 +245,8 @@ function renderArrangeCardControls(index, context) {
   const downButton = document.createElement("button");
   downButton.className = "secondary-button compact-button arrange-move-button";
   downButton.type = "button";
-  downButton.textContent = "下移";
+  downButton.textContent = "↓";
+  downButton.setAttribute("aria-label", `將第 ${index + 1} 張下移`);
   downButton.disabled = Boolean(context.pendingAction) || index >= context.handSize - 1;
   downButton.addEventListener("click", () => context.callbacks.moveArrangementCard(index, index + 1));
   controls.append(downButton);
@@ -274,19 +279,19 @@ export function renderBoard(self, context) {
   elements.rollButton.disabled = Boolean(pendingAction) || !isMyTurn || eliminated || noCardLeft || hasPendingTarget;
 
   if (eliminated) {
-    elements.turnHint.textContent = "你已被淘汰，可以繼續觀看其他玩家完成遊戲。";
+    elements.turnHint.textContent = "你已被淘汰，可以繼續觀看其他玩家。";
   } else if (noCardLeft) {
-    elements.turnHint.textContent = "你沒有可用卡牌，等待遊戲結算或其他玩家行動。";
+    elements.turnHint.textContent = "你沒有可用卡牌，等待遊戲結束。";
   } else if (targetHint?.isUsed) {
-    elements.turnHint.textContent = `第 ${targetHint.position} 張牌已使用`;
+    elements.turnHint.textContent = `第 ${targetHint.position} 張已使用。`;
   } else if (targetHint?.isViewerTarget && targetHint.isOpen) {
-    elements.turnHint.textContent = `第 ${targetHint.position} 張牌已翻開。`;
+    elements.turnHint.textContent = `第 ${targetHint.position} 張已翻開。`;
   } else if (targetHint?.isViewerTarget) {
-    elements.turnHint.textContent = `請點擊第 ${targetHint.position} 張牌。`;
+    elements.turnHint.textContent = `請翻開第 ${targetHint.position} 張牌。`;
   } else if (targetHint) {
     elements.turnHint.textContent = `等待玩家翻開第 ${targetHint.position} 張牌。`;
   } else if (isMyTurn) {
-    elements.turnHint.textContent = "輪到你了，擲骰後會翻開對應位置。";
+    elements.turnHint.textContent = "輪到你了，擲骰後翻開指定位置。";
   } else {
     elements.turnHint.textContent = "等待目前玩家擲骰。";
   }
@@ -300,18 +305,18 @@ function renderTableCenter(game, room, context, targetHint) {
   center.className = "table-center";
 
   const title = document.createElement("strong");
-  title.textContent = "中央擲骰區";
+  title.textContent = "牌桌中心";
   center.append(title);
 
   const dice = document.createElement("div");
   dice.className = `central-die${context.rollAnimation?.active ? " rolling" : ""}`;
   dice.setAttribute("aria-live", "polite");
-  dice.textContent = displayValue ?? "－";
+  dice.textContent = displayValue ?? "·";
   center.append(dice);
 
   const currentTurn = document.createElement("span");
   const turnName = game?.turnPlayerId ? context.getPlayerNameById(game.turnPlayerId, room) : "";
-  currentTurn.textContent = turnName ? `目前回合：${turnName}` : "目前回合：等待中";
+  currentTurn.textContent = turnName ? `${turnName} 的回合` : "等待回合";
   center.append(currentTurn);
 
   const reserve = document.createElement("p");
@@ -380,22 +385,16 @@ function getRevealedCardKey(roomCode, targetPlayerId, position, card, lastRoll) 
 }
 
 function getTargetHintText(targetHint) {
-  if (targetHint.isUsed) {
-    return `第 ${targetHint.position} 張牌已使用`;
+  if (targetHint.isUsed || targetHint.isAcknowledged) {
+    return `第 ${targetHint.position} 張已使用`;
   }
-  if (targetHint.isAcknowledged) {
-    return `第 ${targetHint.position} 張牌已使用`;
-  }
-  if (targetHint.canClick) {
-    return `請點擊第 ${targetHint.position} 張牌`;
+  if (targetHint.canClick || targetHint.isViewerTarget) {
+    return `請翻開第 ${targetHint.position} 張`;
   }
   if (targetHint.isOpen) {
-    return `第 ${targetHint.position} 張牌已翻開`;
+    return `第 ${targetHint.position} 張已翻開`;
   }
-  if (targetHint.isViewerTarget) {
-    return `請點擊第 ${targetHint.position} 張牌`;
-  }
-  return `等待玩家翻開第 ${targetHint.position} 張牌`;
+  return `等待翻開第 ${targetHint.position} 張`;
 }
 
 function getRollControlState(game, context) {
@@ -405,21 +404,21 @@ function getRollControlState(game, context) {
   const lastRoll = game?.dice?.lastRoll;
 
   if (context.rollAnimation?.active) {
-    return { message: "骰子跳動中，等待後端回傳正式點數。" };
+    return { message: "骰子跳動中，等待結果。" };
   }
   if (lastRoll?.playerId === context.playerId && ["pending", "revealed"].includes(lastRoll.status)) {
-    return { message: "請點擊目標牌，按使用後才會結束回合。" };
+    return { message: "請處理指定位置的牌。" };
   }
   if (self?.eliminated) {
-    return { message: "你已被淘汰，可以繼續觀看牌桌。" };
+    return { message: "你已淘汰，保留觀戰視角。" };
   }
   if (noCardLeft) {
-    return { message: "你沒有可用卡牌，等待遊戲結算或其他玩家行動。" };
+    return { message: "你已沒有可用卡牌。" };
   }
   if (game?.turnPlayerId === context.playerId) {
-    return { message: "輪到你了，擲骰後請點擊目標牌並按使用。" };
+    return { message: "輪到你，擲骰決定要翻的牌。" };
   }
-  return { message: "等待目前回合玩家擲骰。" };
+  return { message: "等待對手行動。" };
 }
 
 function getOpponentSeats(players, playerId) {
@@ -466,17 +465,17 @@ function renderPlayerSeat(player, opponentIndex, opponentCount, context, targetH
   identity.append(name);
 
   const meta = document.createElement("span");
-  meta.textContent = `分數 ${formatScore(player?.score)}`;
+  meta.textContent = `${formatScore(player?.score)} 分`;
   identity.append(meta);
   header.append(identity);
 
   const badges = document.createElement("div");
   badges.className = "seat-badges";
   if (isSelf) {
-    badges.append(renderSeatBadge("自己"));
+    badges.append(renderSeatBadge("你"));
   }
   if (isTurn) {
-    badges.append(renderSeatBadge("目前回合"));
+    badges.append(renderSeatBadge("回合中"));
   }
   if (eliminated) {
     badges.append(renderSeatBadge("淘汰"));
@@ -536,7 +535,7 @@ function renderBoardCard(card, position, options = {}) {
 
   const label = document.createElement("span");
   label.className = "card-position";
-  label.textContent = `位置 ${position}`;
+  label.textContent = String(position);
   item.append(label);
 
   const title = document.createElement("strong");
@@ -551,7 +550,7 @@ function renderBoardCard(card, position, options = {}) {
   if (card?.used) {
     const used = document.createElement("span");
     used.className = "used-marker";
-    used.textContent = "已使用";
+    used.textContent = "已用";
     item.append(used);
   }
 
@@ -560,7 +559,7 @@ function renderBoardCard(card, position, options = {}) {
 
 function getBoardCardTitle(card) {
   if (!card) {
-    return "尚未收到";
+    return "未收牌";
   }
   if (card.revealed) {
     return card.name || "已翻開";
@@ -570,7 +569,7 @@ function getBoardCardTitle(card) {
 
 function getBoardCardDetail(card, isSelf) {
   if (!card) {
-    return "等待公開資料";
+    return "等待牌";
   }
   if (card.revealed) {
     return describeCard(card);
@@ -605,22 +604,27 @@ function renderRevealedCardModal(game, context) {
   dialog.className = "card-modal";
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-label", "放大卡牌");
+  dialog.setAttribute("aria-label", "卡牌詳情");
 
   const closeButton = document.createElement("button");
   closeButton.className = "card-modal-close";
   closeButton.type = "button";
-  closeButton.textContent = "關閉";
+  closeButton.textContent = "×";
   closeButton.disabled = Boolean(context.cardUsePending);
   closeButton.addEventListener("click", context.callbacks.closeRevealedCardModal);
   dialog.append(closeButton);
+
+  const modalTitle = document.createElement("h3");
+  modalTitle.className = "modal-title";
+  modalTitle.textContent = "卡牌詳情";
+  dialog.append(modalTitle);
 
   const largeCard = document.createElement("article");
   largeCard.className = `large-card ${Number(card.value) >= 0 ? "score-positive" : "score-negative"}`;
 
   const position = document.createElement("span");
   position.className = "card-position";
-  position.textContent = `第 ${modal.position} 張牌`;
+  position.textContent = `第 ${modal.position} 張`;
   largeCard.append(position);
 
   const title = document.createElement("h3");
@@ -641,13 +645,28 @@ function renderRevealedCardModal(game, context) {
 
   dialog.append(largeCard);
 
+  const metaList = document.createElement("dl");
+  metaList.className = "card-modal-meta";
+  metaList.append(renderMetaItem("位置", `第 ${modal.position} 張`));
+  metaList.append(renderMetaItem("來源", `${context.getPlayerNameById(modal.playerId, context.currentRoom)} 擲來`));
+  metaList.append(renderMetaItem("狀態", card.used ? "已使用" : "已翻開"));
+  dialog.append(metaList);
+
   const actions = document.createElement("div");
   actions.className = "card-modal-actions";
+
+  const closeAction = document.createElement("button");
+  closeAction.className = "secondary-button card-cancel-button";
+  closeAction.type = "button";
+  closeAction.textContent = "關閉";
+  closeAction.disabled = Boolean(context.cardUsePending);
+  closeAction.addEventListener("click", context.callbacks.closeRevealedCardModal);
+  actions.append(closeAction);
 
   const useButton = document.createElement("button");
   useButton.className = "primary-button card-use-button";
   useButton.type = "button";
-  useButton.textContent = context.cardUsePending ? "使用中..." : "使用";
+  useButton.textContent = context.cardUsePending ? "使用中..." : "使用效果";
   useButton.disabled = Boolean(context.cardUsePending) || modal.playerId !== context.playerId || !card.revealed;
   useButton.addEventListener("click", context.callbacks.useRevealedCard);
   actions.append(useButton);
@@ -658,6 +677,16 @@ function renderRevealedCardModal(game, context) {
   if (!existing) {
     context.elements.gamePanel.append(backdrop);
   }
+}
+
+function renderMetaItem(label, value) {
+  const item = document.createElement("div");
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const description = document.createElement("dd");
+  description.textContent = value;
+  item.append(term, description);
+  return item;
 }
 
 function getInitials(name) {
@@ -671,7 +700,7 @@ function getInitials(name) {
 
 function formatScore(score) {
   const number = Number(score);
-  return Number.isFinite(number) ? number : "－";
+  return Number.isFinite(number) ? number : "·";
 }
 
 export function renderScores(game, room, context) {
@@ -686,7 +715,7 @@ export function renderScores(game, room, context) {
 
       const state = document.createElement("span");
       const usedCount = Array.isArray(player.usedPositions) ? player.usedPositions.length : 0;
-      const statusText = player.eliminated ? "淘汰" : usedCount >= context.handSize ? "沒有可用卡牌" : "等待中";
+      const statusText = player.eliminated ? "淘汰" : usedCount >= context.handSize ? "無可用牌" : "等待中";
       state.textContent = `${player.score} 分 · ${statusText}`;
       item.append(state);
 
@@ -697,7 +726,7 @@ export function renderScores(game, room, context) {
 
 export function renderFinished(game, room, context) {
   const winnerNames = game.winnerIds.map((id) => context.getPlayerNameById(id, room)).filter(Boolean);
-  context.elements.winnerText.textContent = winnerNames.length ? `勝利者：${winnerNames.join("、")}` : "沒有勝利者資料。";
+  context.elements.winnerText.textContent = winnerNames.length ? `勝利者：${winnerNames.join("、")}` : "沒有勝利者。";
 }
 
 export function describeCard(card) {
@@ -707,7 +736,7 @@ export function describeCard(card) {
 
   const parts = [];
   if (card.type) {
-    parts.push(card.type);
+    parts.push(formatCardType(card.type));
   }
   if (card.value !== null && card.value !== undefined) {
     parts.push(`數值 ${card.value}`);
@@ -715,7 +744,7 @@ export function describeCard(card) {
   if (card.effect) {
     parts.push(card.effect);
   }
-  return parts.join(" · ") || "無公開效果";
+  return parts.join(" · ") || "沒有公開效果";
 }
 
 function describeScoreEffect(card) {
@@ -724,6 +753,15 @@ function describeScoreEffect(card) {
     return `${value > 0 ? "+" : ""}${value} 分`;
   }
   return describeCard(card);
+}
+
+function formatCardType(type) {
+  const labels = {
+    score: "分數",
+    action: "效果",
+    special: "特殊"
+  };
+  return labels[type] || type;
 }
 
 function getSelectedDraftCount(player) {

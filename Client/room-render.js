@@ -6,8 +6,12 @@ export function renderRoom(room, context) {
     return false;
   }
 
+  elements.roomView.dataset.roomStatus = room.status || "waiting";
+  elements.roomView.dataset.playerCount = String(room.players.length);
+  elements.roomCodeDisplay.textContent = room.code;
   elements.settingsRoomCode.textContent = room.code;
   elements.copyCodeButton.textContent = "複製房號";
+  elements.roomCopyCodeButton.textContent = "複製";
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";
   elements.startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
   renderPlayers(room, context);
@@ -22,20 +26,25 @@ export function renderRoom(room, context) {
 
 export function renderPlayers(room, context) {
   context.elements.playerList.replaceChildren(
-    ...room.players.map((player) => {
+    ...room.players.map((player, index) => {
       const item = document.createElement("li");
       item.className = "player-item";
 
+      const avatar = document.createElement("span");
+      avatar.className = "player-avatar";
+      avatar.textContent = getInitials(player.name);
+      avatar.dataset.avatar = String(index % 4);
+      item.append(avatar);
+
       const name = document.createElement("span");
+      name.className = "player-name";
       name.textContent = player.id === context.playerId ? `${player.name}（你）` : player.name;
       item.append(name);
 
-      if (player.isHost) {
-        const badge = document.createElement("span");
-        badge.className = "host-badge";
-        badge.textContent = "房主";
-        item.append(badge);
-      }
+      const badge = document.createElement("span");
+      badge.className = player.isHost ? "host-badge" : "host-badge waiting";
+      badge.textContent = getPlayerStatus(room, player, context.playerId);
+      item.append(badge);
 
       return item;
     })
@@ -50,10 +59,25 @@ export function getPlayerNameById(id, room) {
 
 export function getPhaseTitle(phase) {
   const labels = {
-    drafting: "抽牌階段",
-    arranging: "排列階段",
+    drafting: "選牌階段",
+    arranging: "排牌階段",
     playing: "回合階段",
-    finished: "結束階段"
+    finished: "結果階段"
   };
   return labels[phase] || "等待開始";
+}
+
+function getPlayerStatus(room, player, selfId) {
+  if (room.status === "playing") {
+    return "遊戲中";
+  }
+  if (player.isHost || player.id === selfId) {
+    return "已準備";
+  }
+  return "等待中";
+}
+
+function getInitials(name) {
+  const text = String(name || "?").trim().replace(/\s+/g, "");
+  return Array.from(text || "?").slice(0, 2).join("").toUpperCase();
 }
