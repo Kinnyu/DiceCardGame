@@ -5037,6 +5037,456 @@ body:has(#roomView:not(.hidden))::after {
   }
 }
 
+/* Playing Phase P0 table layout */
+body:has(#gamePanel[data-phase="playing"]) {
+  overflow-x: hidden;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) {
+  width: min(760px, calc(100% - 12px));
+  min-height: 100dvh;
+  align-content: start;
+  padding: 6px 0;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .room-panel {
+  gap: 4px;
+  padding: 2px 0 6px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .game-panel {
+  gap: 5px;
+  padding: 0;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .game-heading {
+  gap: 4px;
+  padding: 6px 40px 0;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .game-heading h3 {
+  font-size: clamp(1.28rem, 4.9vw, 1.72rem);
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .turn-pill {
+  min-height: 24px;
+  min-width: 86px;
+  padding: 3px 12px;
+  border-radius: 999px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) #turnPanel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) #turnPanel .section-heading {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board {
+  min-height: clamp(610px, calc(100dvh - 118px), 740px);
+  display: grid;
+  grid-template-columns: minmax(54px, 72px) minmax(0, 1fr) minmax(54px, 72px);
+  grid-template-rows: auto auto minmax(170px, 1fr) auto;
+  grid-template-areas:
+    "score score score"
+    "left top right"
+    "left center right"
+    "self self self";
+  gap: 6px;
+  padding: 4px;
+  border: 0;
+  background:
+    radial-gradient(circle at center, rgba(248, 241, 223, 0.76) 0 5.6rem, rgba(248, 241, 223, 0.2) 5.9rem 8rem, transparent 8.2rem),
+    linear-gradient(180deg, rgba(255, 250, 235, 0.18), rgba(255, 250, 235, 0.04));
+  box-shadow: none;
+  overflow: visible;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="1"] {
+  grid-template-rows: auto auto minmax(230px, 1fr) auto;
+  grid-template-areas:
+    "score score score"
+    "top top top"
+    ". center ."
+    "self self self";
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] {
+  grid-template-rows: auto minmax(260px, 1fr) auto;
+  grid-template-areas:
+    "score score score"
+    "left center right"
+    "self self self";
+}
+
+.table-score-strip {
+  grid-area: score;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--score-columns, 4), minmax(0, 1fr));
+  gap: 5px;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid rgba(126, 104, 63, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 250, 235, 0.62);
+  list-style: none;
+}
+
+.tabletop-board[data-player-count="2"] .table-score-strip {
+  --score-columns: 2;
+}
+
+.tabletop-board[data-player-count="3"] .table-score-strip {
+  --score-columns: 3;
+}
+
+.table-score-item {
+  min-width: 0;
+  min-height: 29px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--ref-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.table-score-item.self-score {
+  background: rgba(42, 100, 70, 0.1);
+}
+
+.table-score-item.eliminated {
+  opacity: 0.6;
+}
+
+.score-avatar {
+  width: 24px;
+  border-width: 1px;
+  font-size: 0.58rem;
+}
+
+.score-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-score-item strong {
+  color: #263d33;
+  font-size: 0.78rem;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .player-seat {
+  min-width: 0;
+  gap: 4px;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .player-seat.current-turn {
+  filter: drop-shadow(0 0 6px rgba(204, 161, 69, 0.28));
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .top-seat {
+  width: min(100%, 330px);
+  justify-self: center;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .left-seat,
+.shell:has(#gamePanel[data-phase="playing"]) .right-seat {
+  align-self: center;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .seat-header {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .seat-header {
+  width: min(100%, 220px);
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .left-seat .seat-header,
+.shell:has(#gamePanel[data-phase="playing"]) .right-seat .seat-header {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .left-seat .seat-avatar,
+.shell:has(#gamePanel[data-phase="playing"]) .right-seat .seat-avatar {
+  width: 30px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .seat-badges {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .seat-identity strong {
+  color: var(--ref-ink);
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .seat-identity span {
+  color: #584b32;
+  font-size: 0.64rem;
+  line-height: 1.1;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .seat-card-row {
+  gap: 4px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .top-seat .seat-card-row,
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .seat-card-row {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] .left-seat .seat-card-row,
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] .right-seat .seat-card-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="3"] .left-seat .seat-card-row,
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="3"] .right-seat .seat-card-row {
+  grid-template-columns: 1fr;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .table-card,
+.shell:has(#gamePanel[data-phase="playing"]) .position-card.table-card {
+  min-height: 0;
+  height: 46px;
+  padding: 3px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .opponent-seat .table-card {
+  height: 43px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] .left-seat .table-card,
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] .right-seat .table-card {
+  height: 49px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="3"] .left-seat .table-card,
+.shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="3"] .right-seat .table-card {
+  height: 31px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .table-card:not(.revealed):not(.missing) strong,
+.shell:has(#gamePanel[data-phase="playing"]) .table-card:not(.revealed):not(.missing) .card-effect,
+.shell:has(#gamePanel[data-phase="playing"]) .opponent-seat .table-card:not(.revealed):not(.missing) .card-position {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .seat-card-row {
+  padding-top: 13px;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card {
+  height: clamp(50px, 10vw, 64px);
+  overflow: visible;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card .card-position {
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  color: #503f1f;
+  font-size: 0.7rem;
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .table-center {
+  width: min(100%, 260px);
+  min-height: 166px;
+  align-self: center;
+  justify-self: center;
+  gap: 6px;
+  padding: 14px 10px;
+  border: 1px solid rgba(180, 149, 89, 0.24);
+  border-radius: 28px;
+  background: radial-gradient(circle at center, rgba(255, 249, 231, 0.96), rgba(239, 224, 191, 0.76));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.48),
+    0 8px 16px rgba(63, 48, 26, 0.08);
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .table-center strong {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .table-center span,
+.shell:has(#gamePanel[data-phase="playing"]) .table-center p {
+  max-width: 100%;
+  font-size: 0.72rem;
+  line-height: 1.22;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .central-die {
+  width: clamp(50px, 13vw, 64px);
+  border-radius: 9px;
+  font-size: 1.65rem;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .target-card-hint {
+  max-width: 100%;
+  padding: 4px 9px;
+  overflow-wrap: anywhere;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .central-roll-button {
+  width: min(100%, 190px);
+  min-width: 0;
+  max-width: 100%;
+  min-height: 40px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #617d83, #415d64);
+}
+
+@media (max-width: 520px) {
+  .shell:has(#gamePanel[data-phase="playing"]) {
+    width: 100%;
+    padding-inline: 4px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .game-heading {
+    padding-top: 4px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board {
+    min-height: calc(100dvh - 104px);
+    grid-template-columns: 56px minmax(0, 1fr) 56px;
+    gap: 4px;
+    padding: 2px 4px 4px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] {
+    grid-template-columns: minmax(80px, 0.52fr) minmax(120px, 1fr) minmax(80px, 0.52fr);
+  }
+
+  .table-score-strip {
+    gap: 3px;
+    padding: 4px;
+  }
+
+  .table-score-item {
+    min-height: 27px;
+    gap: 3px;
+    padding-inline: 4px;
+    font-size: 0.62rem;
+  }
+
+  .tabletop-board[data-player-count="4"] .table-score-strip {
+    --score-columns: 2;
+  }
+
+  .score-name {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    line-height: 1.05;
+  }
+
+  .score-avatar {
+    width: 21px;
+  }
+
+  .table-score-item strong {
+    font-size: 0.7rem;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .seat-avatar {
+    width: 28px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .seat-identity strong {
+    font-size: 0.58rem;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .seat-identity span {
+    font-size: 0.56rem;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .table-card,
+  .shell:has(#gamePanel[data-phase="playing"]) .position-card.table-card {
+    height: 37px;
+    padding: 2px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .opponent-seat .table-card {
+    height: 36px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] .left-seat .table-card,
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] .right-seat .table-card {
+    height: 44px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="3"] .left-seat .table-card,
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="3"] .right-seat .table-card {
+    height: 30px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card {
+    height: 50px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .table-card .card-position,
+  .shell:has(#gamePanel[data-phase="playing"]) .table-card strong,
+  .shell:has(#gamePanel[data-phase="playing"]) .table-card .card-effect {
+    font-size: 0.5rem;
+    line-height: 1.05;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .table-center {
+    width: min(100%, 174px);
+    min-height: 164px;
+    gap: 5px;
+    padding: 12px 8px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .central-die {
+    width: 52px;
+    font-size: 1.45rem;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .central-roll-button {
+    width: 150px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 380px) {
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board {
+    grid-template-columns: 52px minmax(0, 1fr) 52px;
+  }
+
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] {
+    grid-template-columns: minmax(76px, 0.52fr) minmax(112px, 1fr) minmax(76px, 0.52fr);
+  }
+}
+
 /* Draft Phase P0 */
 body:has(#gamePanel[data-phase="drafting"]) {
   background:

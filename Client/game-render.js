@@ -378,6 +378,7 @@ export function renderBoard(self, context) {
   elements.boardCards.dataset.playerCount = String(players.length);
   elements.boardCards.dataset.opponentCount = String(opponents.length);
   elements.boardCards.replaceChildren(
+    renderTableScoreStrip(game, currentRoom, context),
     renderTableCenter(game, currentRoom, context, targetHint),
     ...opponents.map((seat, index, seats) =>
       renderPlayerSeat(seat, index, seats.length, context, targetHint)
@@ -408,6 +409,38 @@ export function renderBoard(self, context) {
   } else {
     elements.turnHint.textContent = "等待目前玩家擲骰。";
   }
+}
+
+function renderTableScoreStrip(game, room, context) {
+  const strip = document.createElement("ol");
+  strip.className = "table-score-strip";
+  strip.setAttribute("aria-label", "邇ｩ螳ｶ蛻・丙邵ｽ隕ｽ");
+
+  strip.replaceChildren(
+    ...game.players.map((player) => {
+      const playerName = context.getPlayerNameById(player.id, room);
+      const item = document.createElement("li");
+      item.className = `table-score-item${player.id === context.playerId ? " self-score" : ""}${player.eliminated ? " eliminated" : ""}`;
+
+      const avatar = document.createElement("span");
+      avatar.className = "seat-avatar score-avatar";
+      avatar.textContent = getInitials(playerName);
+      item.append(avatar);
+
+      const name = document.createElement("span");
+      name.className = "score-name";
+      name.textContent = player.id === context.playerId ? `${playerName} (你)` : playerName;
+      item.append(name);
+
+      const score = document.createElement("strong");
+      score.textContent = formatScore(player.score);
+      item.append(score);
+
+      return item;
+    })
+  );
+
+  return strip;
 }
 
 function renderTableCenter(game, room, context, targetHint) {
