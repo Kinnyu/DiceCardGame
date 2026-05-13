@@ -404,7 +404,13 @@ async function draftCard(cardInstanceId) {
 }
 
 async function rollTurn() {
-  if (!currentRoom || pendingAction) {
+  if (!currentRoom || pendingAction || cardUsePending) {
+    return;
+  }
+
+  const targetModal = getCurrentTargetModal(currentRoom.game);
+  if (targetModal) {
+    await handleTargetCardClick(targetModal.position);
     return;
   }
 
@@ -668,6 +674,20 @@ function getTargetModal(game, position) {
     playerId,
     position
   };
+}
+
+function getCurrentTargetModal(game) {
+  const lastRoll = game?.dice?.lastRoll;
+  if (!["pending", "revealed"].includes(lastRoll?.status)) {
+    return null;
+  }
+
+  const position = Number(lastRoll.position ?? lastRoll.result);
+  if (!Number.isInteger(position)) {
+    return null;
+  }
+
+  return getTargetModal(game, position);
 }
 
 function getRevealedCardKey(roomCode, targetPlayerId, position, card, lastRoll) {

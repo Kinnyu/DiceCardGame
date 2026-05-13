@@ -5064,15 +5064,24 @@ body:has(#gamePanel[data-phase="playing"]) {
   padding: 6px 40px 0;
 }
 
+.shell:has(#gamePanel[data-phase="playing"]) .game-heading > div {
+  min-width: 0;
+}
+
 .shell:has(#gamePanel[data-phase="playing"]) .game-heading h3 {
   font-size: clamp(1.28rem, 4.9vw, 1.72rem);
+  overflow-wrap: anywhere;
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) .turn-pill {
+  max-width: min(46vw, 220px);
   min-height: 24px;
   min-width: 86px;
+  overflow: hidden;
   padding: 3px 12px;
   border-radius: 999px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) #turnPanel {
@@ -5294,6 +5303,11 @@ body:has(#gamePanel[data-phase="playing"]) {
 .shell:has(#gamePanel[data-phase="playing"]) .table-card:not(.revealed):not(.missing) .card-effect,
 .shell:has(#gamePanel[data-phase="playing"]) .opponent-seat .table-card:not(.revealed):not(.missing) .card-position {
   display: none;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .table-card.target-card.clickable strong,
+.shell:has(#gamePanel[data-phase="playing"]) .table-card.target-card.clickable .card-effect {
+  display: -webkit-box;
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) .self-seat .seat-card-row {

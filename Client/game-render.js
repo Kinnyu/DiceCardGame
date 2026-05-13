@@ -15,7 +15,7 @@ export function renderGame(room, context) {
   const phase = game.phase || "";
   elements.roomView.dataset.phase = phase || "waiting";
   elements.gamePanel.dataset.phase = phase || "waiting";
-  elements.gamePhaseTitle.textContent = phase === "arranging" ? "Game / 排牌階段" : context.getPhaseTitle(phase);
+  elements.gamePhaseTitle.textContent = `Game / ${context.getPhaseTitle(phase)}`;
   renderTurnIndicator(game, self, room, context);
   if (phase === "drafting") {
     elements.turnIndicator.textContent = `已選 ${Math.min(getSelectedDraftCount(self), context.handSize)} / ${context.handSize}`;
@@ -69,10 +69,17 @@ function renderTurnIndicator(game, self, room, context) {
   }
 
   const currentName = getPlayerNameById(game.turnPlayerId, room);
+  const lastRoll = game.dice?.lastRoll;
+  const opponentIsHandlingCard =
+    game.turnPlayerId !== playerId &&
+    lastRoll?.playerId === game.turnPlayerId &&
+    ["pending", "revealed"].includes(lastRoll?.status);
   if (!game.turnPlayerId) {
-    elements.turnIndicator.textContent = "等待回合";
+    elements.turnIndicator.textContent = "等待對手";
   } else if (game.turnPlayerId === playerId) {
     elements.turnIndicator.textContent = self?.eliminated ? "你已淘汰" : "輪到你";
+  } else if (opponentIsHandlingCard) {
+    elements.turnIndicator.textContent = "等待對手";
   } else {
     elements.turnIndicator.textContent = `輪到 ${currentName}`;
   }
@@ -90,10 +97,13 @@ function renderDice(game, room, context) {
     return;
   }
 
-  const rollerName = context.getPlayerNameById(lastRoll.playerId, room);
+  const isSelfRoll = lastRoll.playerId === context.playerId;
+  const rollerName = isSelfRoll ? "你" : context.getPlayerNameById(lastRoll.playerId, room);
   const position = Number(lastRoll.position ?? lastRoll.result);
   const positionText = Number.isInteger(position) && position >= 1 && position <= context.handSize ? position : "未知";
-  context.elements.diceResult.textContent = `${rollerName} 擲出 ${lastRoll.result}，指向第 ${positionText} 張`;
+  context.elements.diceResult.textContent = isSelfRoll
+    ? `你擲出 ${lastRoll.result}，指向第 ${positionText} 張`
+    : `${rollerName} 擲出 ${lastRoll.result}，指向第 ${positionText} 張`;
 }
 
 export function renderDraftPanel(self, game, context) {
@@ -374,12 +384,13 @@ export function renderBoard(self, context) {
   const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
   const targetHint = getTargetHint(game, context);
   const opponents = getOpponentSeats(players, playerId);
+  const actionState = getTurnActionState(game, self, targetHint, context);
 
   elements.boardCards.dataset.playerCount = String(players.length);
   elements.boardCards.dataset.opponentCount = String(opponents.length);
   elements.boardCards.replaceChildren(
     renderTableScoreStrip(game, currentRoom, context),
-    renderTableCenter(game, currentRoom, context, targetHint),
+    renderTableCenter(game, currentRoom, context, targetHint, actionState),
     ...opponents.map((seat, index, seats) =>
       renderPlayerSeat(seat, index, seats.length, context, targetHint)
     ),
@@ -388,9 +399,9 @@ export function renderBoard(self, context) {
 
   const isMyTurn = game?.turnPlayerId === playerId;
   const noCardLeft = receivedCards.length > 0 && receivedCards.every((card) => card.used);
-  const hasPendingTarget = Boolean(targetHint?.isViewerTarget && !targetHint.isAcknowledged && !targetHint.isUsed);
   const eliminated = Boolean(self?.eliminated);
-  elements.rollButton.disabled = Boolean(pendingAction) || !isMyTurn || eliminated || noCardLeft || hasPendingTarget;
+  elements.rollButton.disabled = actionState.disabled;
+  elements.rollButton.textContent = actionState.label;
 
   if (eliminated) {
     elements.turnHint.textContent = "你已被淘汰，可以繼續觀看其他玩家。";
@@ -398,16 +409,17 @@ export function renderBoard(self, context) {
     elements.turnHint.textContent = "你沒有可用卡牌，等待遊戲結束。";
   } else if (targetHint?.isUsed) {
     elements.turnHint.textContent = `第 ${targetHint.position} 張已使用。`;
-  } else if (targetHint?.isViewerTarget && targetHint.isOpen) {
-    elements.turnHint.textContent = `第 ${targetHint.position} 張已翻開。`;
-  } else if (targetHint?.isViewerTarget) {
-    elements.turnHint.textContent = `請翻開第 ${targetHint.position} 張牌。`;
-  } else if (targetHint) {
-    elements.turnHint.textContent = `等待玩家翻開第 ${targetHint.position} 張牌。`;
+  } else if (targetHint?.isViewerTarget && targetHint.isOpen && targetHint.needsAction) {
+    elements.turnHint.textContent = `先處理第 ${targetHint.position} 張牌，再進入下一步。`;
+  } else if (targetHint?.isViewerTarget && targetHint.needsAction) {
+    elements.turnHint.textContent = `先翻開指定位置的牌：第 ${targetHint.position} 張。`;
+  } else if (targetHint?.needsAction) {
+    elements.turnHint.textContent = `等待對手處理第 ${targetHint.position} 張牌。`;
   } else if (isMyTurn) {
-    elements.turnHint.textContent = "輪到你了，擲骰後翻開指定位置。";
+    elements.turnHint.textContent = "輪到你了，請擲骰。";
   } else {
-    elements.turnHint.textContent = "等待目前玩家擲骰。";
+    const turnName = game?.turnPlayerId ? context.getPlayerNameById(game.turnPlayerId, currentRoom) : "對手";
+    elements.turnHint.textContent = `等待 ${turnName} 擲骰。`;
   }
 }
 
@@ -443,8 +455,7 @@ function renderTableScoreStrip(game, room, context) {
   return strip;
 }
 
-function renderTableCenter(game, room, context, targetHint) {
-  const rollState = getRollControlState(game, context);
+function renderTableCenter(game, room, context, targetHint, actionState) {
   const lastRoll = game?.dice?.lastRoll;
   const displayValue = context.rollAnimation?.active ? context.rollAnimation.displayValue : lastRoll?.result;
   const center = document.createElement("div");
@@ -462,14 +473,14 @@ function renderTableCenter(game, room, context, targetHint) {
 
   const currentTurn = document.createElement("span");
   const turnName = game?.turnPlayerId ? context.getPlayerNameById(game.turnPlayerId, room) : "";
-  currentTurn.textContent = turnName ? `${turnName} 的回合` : "等待回合";
+  currentTurn.textContent = game?.turnPlayerId === context.playerId ? "你的回合" : turnName ? `${turnName} 的回合` : "等待對手";
   center.append(currentTurn);
 
   const reserve = document.createElement("p");
-  reserve.textContent = rollState.message;
+  reserve.textContent = actionState.message;
   center.append(reserve);
 
-  if (targetHint) {
+  if (targetHint?.needsAction) {
     const target = document.createElement("p");
     target.className = `target-card-hint${targetHint.canClick ? " actionable" : ""}`;
     target.textContent = getTargetHintText(targetHint);
@@ -478,7 +489,8 @@ function renderTableCenter(game, room, context, targetHint) {
 
   const rollButton = context.elements.rollButton;
   rollButton.className = "primary-button central-roll-button";
-  rollButton.textContent = context.rollAnimation?.active ? "擲骰中..." : "擲骰";
+  rollButton.textContent = actionState.label;
+  rollButton.disabled = actionState.disabled;
   center.append(rollButton);
 
   return center;
@@ -501,11 +513,12 @@ function getTargetHint(game, context) {
   const isOpen = Boolean(targetCard?.used || targetCard?.revealed);
   const cardKey = getRevealedCardKey(context.currentRoom?.code, targetPlayerId, position, targetCard, lastRoll);
   const isAcknowledged = Boolean(cardKey && context.acknowledgedRevealedCards?.has(cardKey));
+  const needsAction = ["pending", "revealed"].includes(lastRoll?.status) && !isUsed && !isAcknowledged;
   const canClick =
     isViewerTarget &&
+    game.turnPlayerId === context.playerId &&
+    needsAction &&
     Boolean(targetCard && !targetCard.used) &&
-    !isAcknowledged &&
-    !isUsed &&
     !targetPlayer?.eliminated &&
     !context.pendingAction;
 
@@ -514,9 +527,12 @@ function getTargetHint(game, context) {
     isAcknowledged,
     isOpen,
     isUsed,
+    needsAction,
     isViewerTarget,
     playerId: targetPlayerId,
-    position
+    position,
+    result: lastRoll.result,
+    status: lastRoll.status
   };
 }
 
@@ -534,37 +550,49 @@ function getTargetHintText(targetHint) {
   if (targetHint.isUsed || targetHint.isAcknowledged) {
     return `第 ${targetHint.position} 張已使用`;
   }
-  if (targetHint.canClick || targetHint.isViewerTarget) {
-    return `請翻開第 ${targetHint.position} 張`;
+  if (targetHint.isViewerTarget && !targetHint.isOpen) {
+    return `翻開第 ${targetHint.position} 張`;
+  }
+  if (targetHint.isViewerTarget) {
+    return `處理第 ${targetHint.position} 張`;
   }
   if (targetHint.isOpen) {
     return `第 ${targetHint.position} 張已翻開`;
   }
-  return `等待翻開第 ${targetHint.position} 張`;
+  return `等待對手處理第 ${targetHint.position} 張`;
 }
 
-function getRollControlState(game, context) {
-  const self = game?.players?.find((player) => player.id === context.playerId);
+function getTurnActionState(game, self, targetHint, context) {
   const receivedCards = Array.isArray(self?.receivedCards) ? self.receivedCards.filter(Boolean) : [];
   const noCardLeft = receivedCards.length > 0 && receivedCards.every((card) => card.used);
-  const lastRoll = game?.dice?.lastRoll;
+  const isMyTurn = game?.turnPlayerId === context.playerId;
 
   if (context.rollAnimation?.active) {
-    return { message: "骰子跳動中，等待結果。" };
+    return { disabled: true, label: "擲骰中...", message: "骰子跳動中，等待結果。" };
   }
-  if (lastRoll?.playerId === context.playerId && ["pending", "revealed"].includes(lastRoll.status)) {
-    return { message: "請處理指定位置的牌。" };
+  if (context.pendingAction || context.cardUsePending) {
+    const label = targetHint?.isViewerTarget && targetHint.needsAction ? "處理中..." : "擲骰中...";
+    return { disabled: true, label, message: "正在同步回合操作。" };
   }
   if (self?.eliminated) {
-    return { message: "你已淘汰，保留觀戰視角。" };
+    return { disabled: true, label: "已淘汰", message: "你已淘汰，保留觀戰視角。" };
   }
   if (noCardLeft) {
-    return { message: "你已沒有可用卡牌。" };
+    return { disabled: true, label: "無可用牌", message: "你已沒有可用卡牌。" };
   }
-  if (game?.turnPlayerId === context.playerId) {
-    return { message: "輪到你，擲骰決定要翻的牌。" };
+  if (!isMyTurn) {
+    const turnName = game?.turnPlayerId ? context.getPlayerNameById(game.turnPlayerId, context.currentRoom) : "對手";
+    return { disabled: true, label: "等待對手", message: `輪到 ${turnName}，等待對手行動。` };
   }
-  return { message: "等待對手行動。" };
+  if (targetHint?.isViewerTarget && targetHint.needsAction) {
+    const resultText = Number.isInteger(Number(targetHint.result)) ? targetHint.result : "?";
+    return {
+      disabled: false,
+      label: targetHint.isOpen ? `處理第 ${targetHint.position} 張` : `翻開第 ${targetHint.position} 張`,
+      message: `你擲出 ${resultText}，指向第 ${targetHint.position} 張`
+    };
+  }
+  return { disabled: false, label: "擲骰", message: "輪到你，擲骰決定要翻的牌。" };
 }
 
 function getOpponentSeats(players, playerId) {
@@ -665,17 +693,19 @@ function renderSeatCards(player, handSize, isSelf, targetHint, context) {
       canClick: Boolean(isTarget && targetHint?.canClick),
       isSelf,
       isTarget,
+      targetHint: isTarget ? targetHint : null,
       onClick: context.callbacks.handleTargetCardClick
     });
   });
 }
 
 function renderBoardCard(card, position, options = {}) {
-  const { canClick = false, isSelf = false, isTarget = false, onClick } = options;
+  const { canClick = false, isSelf = false, isTarget = false, targetHint = null, onClick } = options;
   const item = document.createElement(canClick ? "button" : "div");
   item.className = `position-card board-card table-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}`;
   if (canClick) {
     item.type = "button";
+    item.setAttribute("aria-label", getBoardCardActionLabel(position, targetHint));
     item.addEventListener("click", () => onClick(position));
   }
 
@@ -685,12 +715,12 @@ function renderBoardCard(card, position, options = {}) {
   item.append(label);
 
   const title = document.createElement("strong");
-  title.textContent = getBoardCardTitle(card);
+  title.textContent = canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardTitle(card);
   item.append(title);
 
   const detail = document.createElement("span");
   detail.className = "card-effect";
-  detail.textContent = getBoardCardDetail(card, isSelf);
+  detail.textContent = canClick ? "指定位置" : getBoardCardDetail(card, isSelf);
   item.append(detail);
 
   if (card?.used) {
@@ -701,6 +731,13 @@ function renderBoardCard(card, position, options = {}) {
   }
 
   return item;
+}
+
+function getBoardCardActionLabel(position, targetHint) {
+  if (targetHint?.isOpen) {
+    return `處理第 ${position} 張`;
+  }
+  return `翻開第 ${position} 張`;
 }
 
 function getBoardCardTitle(card) {
