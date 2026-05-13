@@ -15,7 +15,7 @@ export function renderGame(room, context) {
   const phase = game.phase || "";
   elements.roomView.dataset.phase = phase || "waiting";
   elements.gamePanel.dataset.phase = phase || "waiting";
-  elements.gamePhaseTitle.textContent = context.getPhaseTitle(phase);
+  elements.gamePhaseTitle.textContent = phase === "arranging" ? "Game / 排牌階段" : context.getPhaseTitle(phase);
   renderTurnIndicator(game, self, room, context);
   if (phase === "drafting") {
     elements.turnIndicator.textContent = `已選 ${Math.min(getSelectedDraftCount(self), context.handSize)} / ${context.handSize}`;
@@ -225,41 +225,59 @@ export function renderArrangePanel(self, context) {
 
   if (alreadyArranged) {
     elements.arrangeHint.textContent = "你已送出牌序，等待其他玩家。";
+    elements.turnIndicator.textContent = `${handSize}/${handSize} 已排`;
     elements.submitArrangeButton.disabled = true;
+    elements.submitArrangeButton.textContent = "已送出排列";
+    elements.resetArrangeButton.disabled = true;
     elements.arrangeSlots.replaceChildren(...renderArrangedPreview(arrangedCards, handSize));
-    elements.handCards.replaceChildren(emptyState("等待其他玩家完成排牌"));
+    elements.handCards.replaceChildren(...renderArrangeOrderSlots(arrangedCards, handSize));
     return;
   }
 
   if (!hand.length) {
     elements.arrangeHint.textContent = "正在等待手牌同步。";
+    elements.turnIndicator.textContent = `0/${handSize} 已排`;
     elements.submitArrangeButton.disabled = true;
+    elements.submitArrangeButton.textContent = "送出排列";
+    elements.resetArrangeButton.disabled = true;
     elements.arrangeSlots.replaceChildren(...renderEmptySlots(handSize));
-    elements.handCards.replaceChildren(emptyState("尚未取得手牌"));
+    elements.handCards.replaceChildren(...renderArrangeOrderSlots([], handSize));
     return;
   }
 
   callbacks.syncArrangement(hand);
-  elements.arrangeHint.textContent = `已排 ${arrangement.filter(Boolean).length} / ${handSize} 張，使用上下按鈕調整順序。`;
+  const arrangedCount = arrangement.filter(Boolean).length;
+  elements.arrangeHint.textContent = "調整 1 到 6 的牌序，送出後會給右側玩家。";
+  elements.turnIndicator.textContent = `${arrangedCount}/${handSize} 已排`;
+  elements.arrangePanel.dataset.arrangedCount = String(arrangedCount);
   elements.arrangeSlots.replaceChildren(
     ...arrangement.map((card, index) => renderArrangeSlot(card, index, context))
   );
-  elements.handCards.replaceChildren(emptyState("送出後將等待其他玩家完成排牌"));
+  elements.handCards.replaceChildren(...renderArrangeOrderSlots(arrangement, handSize));
   elements.submitArrangeButton.disabled =
     Boolean(pendingAction) ||
     arrangement.length !== handSize ||
     arrangement.some((card) => !card) ||
     new Set(arrangement.map((card) => card?.instanceId).filter(Boolean)).size !== handSize;
+  elements.submitArrangeButton.textContent = pendingAction === "arrange" ? "送出中..." : "送出排列";
+  elements.resetArrangeButton.disabled = Boolean(pendingAction);
 }
 
 function renderArrangeSlot(card, index, context) {
   const item = document.createElement("div");
-  item.className = `position-card arrange-slot arrange-order-card${card ? " filled" : ""}`;
+  const cardId = card?.instanceId || card?.id || "";
+  const isActive = Boolean(cardId && cardId === context.movedArrangementCardId);
+  item.className = `position-card arrange-slot arrange-order-card${card ? " filled" : ""}${isActive ? " is-active" : ""}`;
 
   const position = document.createElement("span");
   position.className = "card-position";
-  position.textContent = `第 ${index + 1} 張`;
+  position.textContent = String(index + 1);
   item.append(position);
+
+  const icon = document.createElement("span");
+  icon.className = "arrange-card-icon";
+  icon.textContent = card ? getArrangeCardIcon(card) : "◇";
+  item.append(icon);
 
   const name = document.createElement("strong");
   name.textContent = card?.name || "空位";
@@ -305,6 +323,48 @@ function renderArrangeCardControls(index, context) {
   controls.append(downButton);
 
   return controls;
+}
+
+function renderArrangeOrderSlots(cards, handSize) {
+  const hasStoredPositions = cards.some((card) => Number.isInteger(Number(card?.position)));
+  const cardsByPosition = hasStoredPositions
+    ? new Map(cards.map((card) => [Number(card?.position), card]).filter(([, card]) => card))
+    : new Map(cards.map((card, index) => [index + 1, card]).filter(([, card]) => card));
+
+  return Array.from({ length: handSize }, (_, index) => {
+    const position = index + 1;
+    const card = cardsByPosition.get(position);
+    const slot = document.createElement("div");
+    slot.className = `arrange-mini-slot${card ? " filled" : ""}`;
+    slot.setAttribute("aria-label", card ? `第 ${position} 張：${card.name || "卡牌"}` : `第 ${position} 張空位`);
+
+    const number = document.createElement("span");
+    number.textContent = String(position);
+    slot.append(number);
+
+    if (card?.name) {
+      const title = document.createElement("strong");
+      title.textContent = card.name;
+      slot.append(title);
+    }
+
+    return slot;
+  });
+}
+
+function getArrangeCardIcon(card) {
+  if (card?.type === "action") {
+    return "↻";
+  }
+  if (card?.type === "special") {
+    return "♛";
+  }
+
+  const value = Number(card?.value);
+  if (Number.isFinite(value) && value < 0) {
+    return "−";
+  }
+  return "+";
 }
 
 export function renderBoard(self, context) {

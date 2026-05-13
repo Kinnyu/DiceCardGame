@@ -33,6 +33,7 @@ const settingsRoomCode = document.querySelector("#settingsRoomCode");
 const settingsPlayerCount = document.querySelector("#settingsPlayerCount");
 const roomCodeDisplay = document.querySelector("#roomCodeDisplay");
 const submitArrangeButton = document.querySelector("#submitArrangeButton");
+const resetArrangeButton = document.querySelector("#resetArrangeButton");
 const rollButton = document.querySelector("#rollButton");
 const lobbyMessage = document.querySelector("#lobbyMessage");
 const roomMessage = document.querySelector("#roomMessage");
@@ -77,6 +78,7 @@ const elements = {
   settingsPlayerCount,
   roomCodeDisplay,
   submitArrangeButton,
+  resetArrangeButton,
   rollButton,
   lobbyMessage,
   roomMessage,
@@ -116,6 +118,8 @@ let appliedRoomRequestId = 0;
 let pendingAction = "";
 let arrangement = Array(handSize).fill(null);
 let arrangementHandSignature = "";
+let movedArrangementCardId = "";
+let moveHighlightTimer = null;
 let rollAnimationTimer = null;
 let rollDisplayValue = null;
 let rollAnimationActive = false;
@@ -143,6 +147,7 @@ settingsMenu.addEventListener("click", (event) => {
   }
 });
 submitArrangeButton.addEventListener("click", arrangeCards);
+resetArrangeButton.addEventListener("click", resetArrangementToHand);
 rollButton.addEventListener("click", rollTurn);
 roomCodeInput.addEventListener("input", () => {
   roomCodeInput.value = roomCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -473,6 +478,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     handSize,
     pendingAction,
     arrangement,
+    movedArrangementCardId,
     rollAnimation: {
       active: rollAnimationActive,
       displayValue: rollDisplayValue
@@ -770,8 +776,20 @@ function syncArrangement(hand) {
 }
 
 function resetArrangement() {
+  clearMoveHighlight();
   arrangement.splice(0, arrangement.length, ...Array(handSize).fill(null));
   arrangementHandSignature = "";
+}
+
+function resetArrangementToHand() {
+  if (pendingAction) {
+    return;
+  }
+
+  resetArrangement();
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
 }
 
 function moveArrangementCard(fromIndex, toIndex) {
@@ -781,8 +799,31 @@ function moveArrangementCard(fromIndex, toIndex) {
 
   const nextArrangement = [...arrangement];
   [nextArrangement[fromIndex], nextArrangement[toIndex]] = [nextArrangement[toIndex], nextArrangement[fromIndex]];
+  movedArrangementCardId = nextArrangement[toIndex]?.instanceId || nextArrangement[toIndex]?.id || "";
   arrangement.splice(0, arrangement.length, ...nextArrangement);
+  scheduleMoveHighlightClear();
   if (currentRoom) {
     renderRoom(currentRoom, appliedRoomRequestId);
+  }
+}
+
+function scheduleMoveHighlightClear() {
+  if (moveHighlightTimer) {
+    window.clearTimeout(moveHighlightTimer);
+  }
+  moveHighlightTimer = window.setTimeout(() => {
+    moveHighlightTimer = null;
+    movedArrangementCardId = "";
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+  }, 900);
+}
+
+function clearMoveHighlight() {
+  movedArrangementCardId = "";
+  if (moveHighlightTimer) {
+    window.clearTimeout(moveHighlightTimer);
+    moveHighlightTimer = null;
   }
 }

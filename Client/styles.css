@@ -5456,3 +5456,390 @@ body:has(#gamePanel[data-phase="drafting"])::after {
     min-height: 88px;
   }
 }
+
+/* Arrange Phase P0 */
+body:has(#gamePanel[data-phase="arranging"]) {
+  background:
+    radial-gradient(circle at 12% 7%, rgba(214, 199, 165, 0.5) 0 42px, transparent 43px),
+    radial-gradient(circle at 86% 12%, rgba(246, 238, 217, 0.94) 0 44px, transparent 45px),
+    radial-gradient(circle at 78% 84%, rgba(214, 199, 165, 0.38) 0 68px, transparent 69px),
+    linear-gradient(180deg, #fbf3dd, #efdfba);
+}
+
+body:has(#gamePanel[data-phase="arranging"])::before {
+  width: min(100%, 390px);
+  background:
+    linear-gradient(90deg, rgba(47, 71, 56, 0.97) 0 14px, transparent 14px calc(100% - 14px), rgba(47, 71, 56, 0.97) calc(100% - 14px)),
+    radial-gradient(circle at 25% 15%, rgba(36, 49, 40, 0.05) 0 1.7px, transparent 2px),
+    radial-gradient(circle at 70% 36%, rgba(36, 49, 40, 0.045) 0 1.7px, transparent 2px),
+    repeating-linear-gradient(20deg, rgba(128, 104, 61, 0.03) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, #fbf3dd, #efdfba);
+}
+
+body:has(#gamePanel[data-phase="arranging"])::after {
+  opacity: 0.56;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) {
+  width: min(390px, 100%);
+  min-height: 100dvh;
+  align-content: start;
+  padding: 18px 36px 10px;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .room-panel {
+  min-height: calc(100dvh - 28px);
+  gap: 6px;
+  padding: 0;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .room-title,
+.shell:has(#gamePanel[data-phase="arranging"]) .room-code-card,
+.shell:has(#gamePanel[data-phase="arranging"]) .room-subheading,
+.shell:has(#gamePanel[data-phase="arranging"]) .room-panel > .player-list,
+.shell:has(#gamePanel[data-phase="arranging"]) .room-panel > #startGameButton,
+.shell:has(#gamePanel[data-phase="arranging"]) .dice-result,
+.shell:has(#gamePanel[data-phase="arranging"]) .game-panel > .game-section:not(#arrangePanel) {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .room-topbar {
+  min-height: 32px;
+  padding: 0;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .room-topbar .icon-button {
+  top: 0;
+  right: 0;
+  z-index: 4;
+  width: 31px;
+  min-width: 31px;
+  min-height: 31px;
+  border-radius: 999px;
+  color: #4f493e;
+  background: rgba(255, 249, 231, 0.72);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .game-panel {
+  gap: 7px;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .game-heading {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 5px;
+  padding: 0 34px;
+  text-align: center;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .game-heading .eyebrow {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .game-heading h3 {
+  color: #1f251e;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .turn-pill {
+  min-width: 86px;
+  min-height: 22px;
+  padding: 2px 13px;
+  border-radius: 999px;
+  color: #384b3d;
+  background: rgba(255, 249, 231, 0.78);
+  font-size: 0.72rem;
+  box-shadow: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, auto) auto auto auto;
+  gap: 7px;
+  padding: 0 0 3px;
+  overflow: visible;
+  background: transparent;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel.hidden {
+  display: none !important;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel .section-heading {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel .section-heading h4 {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel .section-heading p {
+  display: block;
+  min-height: 30px;
+  margin: 0;
+  padding: 6px 11px;
+  border: 1px solid rgba(128, 104, 61, 0.2);
+  border-radius: 8px;
+  color: #405348;
+  background: rgba(255, 249, 231, 0.78);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel .section-heading p::before {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border-radius: 5px;
+  color: #fff5dc;
+  background: #315d55;
+  font-size: 0.66rem;
+  content: "▧";
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel .slot-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 0;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card {
+  position: relative;
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 42px 30px minmax(0, 1fr) 66px;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 3px 9px;
+  padding: 7px 7px;
+  border: 1px solid rgba(184, 169, 136, 0.7);
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--ref-gold) 0 0) left 5px top 5px / 14px 1px no-repeat,
+    linear-gradient(var(--ref-gold) 0 0) left 5px top 5px / 1px 14px no-repeat,
+    linear-gradient(var(--ref-gold) 0 0) right 5px bottom 5px / 14px 1px no-repeat,
+    linear-gradient(var(--ref-gold) 0 0) right 5px bottom 5px / 1px 14px no-repeat,
+    linear-gradient(180deg, rgba(255, 253, 244, 0.98), rgba(249, 240, 216, 0.96));
+  box-shadow: 0 4px 8px rgba(31, 25, 17, 0.12);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.filled {
+  border-color: rgba(124, 166, 136, 0.72);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active {
+  border-color: #3f7c48;
+  background:
+    linear-gradient(90deg, rgba(63, 124, 72, 0.16), transparent 8%, transparent 92%, rgba(63, 124, 72, 0.16)),
+    linear-gradient(180deg, #ffffff, #eef8ed);
+  box-shadow:
+    0 0 0 2px rgba(63, 124, 72, 0.22),
+    0 5px 10px rgba(31, 25, 17, 0.16);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card .card-position {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 32px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(128, 104, 61, 0.25);
+  border-radius: 999px;
+  color: #315d55;
+  background: rgba(255, 249, 231, 0.72);
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.03rem;
+  font-weight: 900;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active .card-position {
+  color: #ffffff;
+  background: #3f7c48;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-card-icon {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 26px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: #557e52;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card strong,
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card .card-effect {
+  grid-column: 3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card strong {
+  color: #2d3b2c;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 0.94rem;
+  font-weight: 900;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card .card-effect {
+  color: #335f3e;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card .card-description {
+  display: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-controls {
+  grid-column: 4;
+  grid-row: 1 / span 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-move-button {
+  width: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 1px solid rgba(128, 104, 61, 0.22);
+  border-radius: 999px;
+  color: #425148;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-move-button:disabled {
+  opacity: 0.38;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel .hand-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.arrange-mini-slot {
+  min-width: 0;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  padding: 4px 2px;
+  border: 1px solid rgba(184, 169, 136, 0.42);
+  border-radius: 5px;
+  background: rgba(255, 249, 231, 0.46);
+  color: rgba(72, 91, 74, 0.58);
+  text-align: center;
+}
+
+.arrange-mini-slot span {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.arrange-mini-slot strong {
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  color: #48633f;
+  font-size: 0.52rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arrange-mini-slot.filled {
+  border-color: rgba(124, 166, 136, 0.62);
+  background: rgba(255, 253, 244, 0.82);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #submitArrangeButton,
+.shell:has(#gamePanel[data-phase="arranging"]) #resetArrangeButton {
+  min-height: 43px;
+  border-radius: 7px;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #submitArrangeButton {
+  border: 2px solid rgba(216, 190, 124, 0.88);
+  background: linear-gradient(180deg, #0f6970, #084b51);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 249, 231, 0.08),
+    0 4px 8px rgba(31, 25, 17, 0.24);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #submitArrangeButton::before {
+  margin-right: 8px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  content: "➤";
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #resetArrangeButton {
+  min-height: 34px;
+  border-color: rgba(128, 104, 61, 0.3);
+  color: #334b43;
+  background: rgba(255, 249, 231, 0.78);
+  box-shadow: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #resetArrangeButton::before {
+  margin-right: 8px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  content: "↻";
+}
+
+@media (max-width: 380px) {
+  .shell:has(#gamePanel[data-phase="arranging"]) {
+    padding-inline: 28px;
+  }
+
+  .shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card {
+    grid-template-columns: 36px 24px minmax(0, 1fr) 62px;
+    gap: 3px 6px;
+    min-height: 60px;
+  }
+
+  .shell:has(#gamePanel[data-phase="arranging"]) .arrange-card-icon {
+    width: 22px;
+    font-size: 0.92rem;
+  }
+
+  .shell:has(#gamePanel[data-phase="arranging"]) .arrange-controls {
+    gap: 4px;
+  }
+
+  .shell:has(#gamePanel[data-phase="arranging"]) .arrange-move-button {
+    width: 28px;
+    min-width: 28px;
+  }
+}
