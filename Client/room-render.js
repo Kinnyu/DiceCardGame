@@ -8,6 +8,7 @@ export function renderRoom(room, context) {
 
   elements.roomView.dataset.roomStatus = room.status || "waiting";
   elements.roomView.dataset.playerCount = String(room.players.length);
+  elements.roomCodeDisplay.closest(".room-code-card")?.setAttribute("data-player-count", String(room.players.length));
   elements.roomCodeDisplay.textContent = room.code;
   elements.settingsRoomCode.textContent = room.code;
   elements.settingsPlayerCount.textContent = `${room.players.length} 人`;

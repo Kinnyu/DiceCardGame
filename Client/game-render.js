@@ -17,6 +17,9 @@ export function renderGame(room, context) {
   elements.gamePanel.dataset.phase = phase || "waiting";
   elements.gamePhaseTitle.textContent = context.getPhaseTitle(phase);
   renderTurnIndicator(game, self, room, context);
+  if (phase === "drafting") {
+    elements.turnIndicator.textContent = `已選 ${Math.min(getSelectedDraftCount(self), context.handSize)} / ${context.handSize}`;
+  }
   renderDice(game, room, context);
   renderScores(game, room, context);
 
@@ -76,6 +79,11 @@ function renderTurnIndicator(game, self, room, context) {
 }
 
 function renderDice(game, room, context) {
+  if (game.phase === "drafting") {
+    renderDraftWaiting(game, context);
+    return;
+  }
+
   const lastRoll = game.dice?.lastRoll;
   if (!lastRoll) {
     context.elements.diceResult.textContent = "等待第一擲";
@@ -98,6 +106,7 @@ export function renderDraftPanel(self, game, context) {
   const waitingOtherPlayers = draftComplete && game.players.some((player) => getSelectedDraftCount(player) < handSize);
 
   if (!draftCards.length) {
+    renderDraftActions(selectedCount, handSize, draftComplete, context);
     elements.draftHint.textContent = "正在等待候選牌資料同步。";
     elements.draftCards.replaceChildren(emptyState("尚未取得候選牌"));
     return;
@@ -121,6 +130,50 @@ export function renderDraftPanel(self, game, context) {
       })
     )
   );
+  renderDraftActions(selectedCount, handSize, draftComplete, context);
+}
+
+function renderDraftWaiting(game, context) {
+  const readyCount = game.players.filter((player) => getSelectedDraftCount(player) >= context.handSize).length;
+  const allReady = readyCount >= game.players.length;
+  const label = document.createElement("span");
+  label.className = "draft-waiting-label";
+  label.textContent = allReady ? "選牌完成，準備進入排牌" : "等待其他玩家選牌";
+
+  const dots = document.createElement("span");
+  dots.className = "draft-progress-dots";
+  dots.setAttribute("aria-label", `${readyCount} / ${game.players.length} 位玩家完成選牌`);
+  dots.append(
+    ...game.players.map((player) => {
+      const dot = document.createElement("span");
+      dot.className = `draft-progress-dot${getSelectedDraftCount(player) >= context.handSize ? " ready" : ""}`;
+      return dot;
+    })
+  );
+
+  context.elements.diceResult.replaceChildren(label, dots);
+}
+
+function renderDraftActions(selectedCount, handSize, draftComplete, context) {
+  context.elements.draftPanel.querySelector(".draft-actions")?.remove();
+
+  const actions = document.createElement("div");
+  actions.className = "draft-actions";
+
+  const button = document.createElement("button");
+  button.className = "primary-button draft-confirm-button";
+  button.type = "button";
+  button.disabled = true;
+  button.textContent = draftComplete ? "已確認選牌" : "確認選牌";
+  actions.append(button);
+
+  const hint = document.createElement("p");
+  hint.className = "draft-confirm-hint";
+  hint.textContent = `從 10 張候選牌中選出 ${handSize} 張`;
+  actions.append(hint);
+
+  context.elements.draftPanel.dataset.selectedCount = String(selectedCount);
+  context.elements.draftPanel.append(actions);
 }
 
 function renderDraftCard(card, options) {
