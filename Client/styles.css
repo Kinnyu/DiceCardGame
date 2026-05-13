@@ -3894,9 +3894,9 @@ button {
 .player-name {
   min-width: 0;
   font-weight: 820;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .host-badge,
@@ -5167,6 +5167,10 @@ body:has(#gamePanel[data-phase="playing"]) {
   overflow-x: hidden;
 }
 
+body:has(#gamePanel[data-phase="playing"])::before {
+  width: min(100%, 760px);
+}
+
 .shell:has(#gamePanel[data-phase="playing"]) {
   width: min(760px, calc(100% - 12px));
   min-height: 100dvh;
@@ -5310,9 +5314,9 @@ body:has(#gamePanel[data-phase="playing"]) {
 
 .score-name {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.05;
 }
 
 .table-score-item strong {
@@ -5371,9 +5375,13 @@ body:has(#gamePanel[data-phase="playing"]) {
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) .seat-identity strong {
+  max-width: 100%;
+  display: block;
   color: var(--ref-ink);
   font-size: 0.68rem;
   line-height: 1.1;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) .seat-identity span {
@@ -5433,6 +5441,19 @@ body:has(#gamePanel[data-phase="playing"]) {
 .shell:has(#gamePanel[data-phase="playing"]) .table-card.target-card.clickable strong,
 .shell:has(#gamePanel[data-phase="playing"]) .table-card.target-card.clickable .card-effect {
   display: -webkit-box;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.clickable {
+  background:
+    linear-gradient(45deg, transparent 0 38%, rgba(232, 207, 146, 0.18) 38% 40%, transparent 40% 60%, rgba(232, 207, 146, 0.18) 60% 62%, transparent 62%),
+    radial-gradient(circle at 50% 50%, transparent 0 28%, rgba(232, 207, 146, 0.16) 29% 31%, transparent 32%),
+    linear-gradient(180deg, #174b43, #0d3836);
+  overflow: hidden;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.clickable strong,
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.clickable .card-effect {
+  display: none;
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) .self-seat .seat-card-row {
@@ -5501,6 +5522,12 @@ body:has(#gamePanel[data-phase="playing"]) {
   background: linear-gradient(180deg, #617d83, #415d64);
 }
 
+@media (max-width: 760px) {
+  .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-player-count="4"] .table-score-strip {
+    --score-columns: 2;
+  }
+}
+
 @media (max-width: 520px) {
   .shell:has(#gamePanel[data-phase="playing"]) {
     width: 100%;
@@ -5512,10 +5539,10 @@ body:has(#gamePanel[data-phase="playing"]) {
   }
 
   .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board {
-    min-height: calc(100dvh - 104px);
+    min-height: calc(100dvh - 118px);
     grid-template-columns: 56px minmax(0, 1fr) 56px;
     gap: 4px;
-    padding: 2px 4px 4px;
+    padding: 2px 4px 10px;
   }
 
   .shell:has(#gamePanel[data-phase="playing"]) .tabletop-board[data-opponent-count="2"] {

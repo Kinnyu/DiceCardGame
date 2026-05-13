@@ -33,28 +33,51 @@ async function main() {
   console.log("rooms ready", rooms);
   const results = [];
 
-  for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }]) {
+  const mobileViewports = [
+    { width: 390, height: 844, name: "390x844" },
+    { width: 430, height: 932, name: "430x932" }
+  ];
+  const desktopNarrow = { width: 700, height: 844, name: "700x844-desktop", mobile: false };
+
+  for (const viewport of mobileViewports) {
     results.push(await scenario("entry", viewport, "entry-player", `${baseUrl}/`));
     results.push(await scenario("lobby", viewport, "lobby-player", `${baseUrl}/`, async (cdp) => {
       await evaluate(cdp, "document.querySelector('#entryStartButton').click(), true");
       await delay(200);
     }));
     results.push(await scenario("room", viewport, "mobile-one", `${baseUrl}/#room=${rooms.waitingCode}`));
+    results.push(await scenario("ready", viewport, "ready-one", `${baseUrl}/#room=${rooms.readyCode}`));
     results.push(await scenario("settings", viewport, "mobile-one", `${baseUrl}/#room=${rooms.waitingCode}`, async (cdp) => {
       await evaluate(cdp, "document.querySelector('#settingsButton').click(), true");
       await delay(150);
     }));
     results.push(await scenario("drafting", viewport, "draft-one", `${baseUrl}/#room=${rooms.draftCode}`));
     results.push(await scenario("arranging", viewport, "arr-one", `${baseUrl}/#room=${rooms.arrangeCode}`));
-    results.push(await scenario("playing", viewport, rooms.turnPlayer, `${baseUrl}/#room=${rooms.playCode}`));
-    results.push(await scenario("card-modal", viewport, rooms.turnPlayer, `${baseUrl}/#room=${rooms.playCode}`, async (cdp) => {
+    results.push(await scenario("playing-2p", viewport, rooms.play2.turnPlayer, `${baseUrl}/#room=${rooms.play2.code}`));
+    results.push(await scenario("playing-3p", viewport, rooms.play3.turnPlayer, `${baseUrl}/#room=${rooms.play3.code}`));
+    results.push(await scenario("playing-4p", viewport, rooms.play4.turnPlayer, `${baseUrl}/#room=${rooms.play4.code}`));
+    results.push(await scenario("card-modal", viewport, rooms.play2.turnPlayer, `${baseUrl}/#room=${rooms.play2.code}`, async (cdp) => {
       await evaluate(cdp, "document.querySelector('.target-card.clickable')?.click(), true");
       await delay(200);
     }));
   }
 
+  for (const [label, playerId, url, beforeAudit] of [
+    ["desktop-room", "ready-one", `${baseUrl}/#room=${rooms.readyCode}`],
+    ["desktop-drafting", "draft-one", `${baseUrl}/#room=${rooms.draftCode}`],
+    ["desktop-arranging", "arr-one", `${baseUrl}/#room=${rooms.arrangeCode}`],
+    ["desktop-playing-4p", rooms.play4.turnPlayer, `${baseUrl}/#room=${rooms.play4.code}`],
+    ["desktop-card-modal", rooms.play2.turnPlayer, `${baseUrl}/#room=${rooms.play2.code}`, async (cdp) => {
+      await evaluate(cdp, "document.querySelector('.target-card.clickable')?.click(), true");
+      await delay(200);
+    }]
+  ]) {
+    results.push(await scenario(label, desktopNarrow, playerId, url, beforeAudit));
+  }
+
   await fs.writeFile(path.join(outDir, "mobile-overflow-report.json"), `${JSON.stringify({ rooms, results }, null, 2)}\n`);
   console.log(JSON.stringify(summarize(results), null, 2));
+  assertClean(results);
   } finally {
     chrome.kill();
     await onceExit(chrome);
@@ -75,7 +98,8 @@ async function scenario(label, viewport, playerId, url, beforeAudit = null) {
       await beforeAudit(cdp);
     }
     const audit = await evaluate(cdp, auditExpression);
-    await screenshot(cdp, `${viewport.width}x${viewport.height}-${label}`);
+    audit.consoleIssues = getConsoleIssues(cdp);
+    await screenshot(cdp, `${viewport.name || `${viewport.width}x${viewport.height}`}-${label}`);
     return { label, viewport, audit };
   } finally {
     close();
@@ -85,16 +109,21 @@ async function scenario(label, viewport, playerId, url, beforeAudit = null) {
 function summarize(results) {
   return results.map(({ label, viewport, audit }) => ({
     label,
-    viewport,
+    viewport: viewport.name || `${viewport.width}x${viewport.height}`,
     hasHorizontalOverflow: audit.hasHorizontalOverflow,
     docScrollWidth: audit.docScrollWidth,
     badButtons: audit.badButtons.length,
+    consoleIssues: audit.consoleIssues.length,
     overflowing: audit.overflowing.map((item) => `${item.tag}${item.id ? `#${item.id}` : ""}${item.cls ? `.${item.cls}` : ""}`)
   }));
 }
 
 async function prepareRooms() {
   const waitingCode = (await post("/api/rooms", { playerId: "mobile-one", name: "VeryLongMobilePlayerNameOne" })).room.code;
+  const readyCode = (await post("/api/rooms", { playerId: "ready-one", name: "ReadyLongMobilePlayerOne" })).room.code;
+  await post(`/api/rooms/${readyCode}/join`, { playerId: "ready-two", name: "ReadyLongMobilePlayerTwo" });
+  await post(`/api/rooms/${readyCode}/join`, { playerId: "ready-three", name: "ReadyLongMobilePlayerThree" });
+  await post(`/api/rooms/${readyCode}/join`, { playerId: "ready-four", name: "ReadyLongMobilePlayerFour" });
 
   const draftCode = (await post("/api/rooms", { playerId: "draft-one", name: "DraftLongNameOne" })).room.code;
   await post(`/api/rooms/${draftCode}/join`, { playerId: "draft-two", name: "DraftLongNameTwo" });
@@ -106,18 +135,30 @@ async function prepareRooms() {
   await draftSix(arrangeCode, "arr-one");
   await draftSix(arrangeCode, "arr-two");
 
-  const playCode = (await post("/api/rooms", { playerId: "play-one", name: "PlayLongNameOne" })).room.code;
-  await post(`/api/rooms/${playCode}/join`, { playerId: "play-two", name: "PlayLongNameTwo" });
-  await post(`/api/rooms/${playCode}/start`, { playerId: "play-one" });
-  await draftSix(playCode, "play-one");
-  await draftSix(playCode, "play-two");
-  await arrange(playCode, "play-one");
-  await arrange(playCode, "play-two");
-  const beforeTurn = await get(`/api/rooms/${playCode}?playerId=play-one`);
-  const turnPlayer = beforeTurn.room.game.turnPlayerId;
-  await post(`/api/rooms/${playCode}/turn`, { playerId: turnPlayer });
+  const play2 = await preparePlayingRoom("play2", ["PlayLongNameOne", "PlayLongNameTwo"]);
+  const play3 = await preparePlayingRoom("play3", ["PlayLongNameOne", "PlayLongNameTwo", "PlayLongNameThree"]);
+  const play4 = await preparePlayingRoom("play4", ["PlayLongNameOne", "PlayLongNameTwo", "PlayLongNameThree", "PlayLongNameFour"]);
 
-  return { waitingCode, draftCode, arrangeCode, playCode, turnPlayer };
+  return { waitingCode, readyCode, draftCode, arrangeCode, play2, play3, play4 };
+}
+
+async function preparePlayingRoom(prefix, names) {
+  const playerIds = names.map((_, index) => `${prefix}-${index + 1}`);
+  const code = (await post("/api/rooms", { playerId: playerIds[0], name: names[0] })).room.code;
+  for (let index = 1; index < playerIds.length; index += 1) {
+    await post(`/api/rooms/${code}/join`, { playerId: playerIds[index], name: names[index] });
+  }
+  await post(`/api/rooms/${code}/start`, { playerId: playerIds[0] });
+  for (const playerId of playerIds) {
+    await draftSix(code, playerId);
+  }
+  for (const playerId of playerIds) {
+    await arrange(code, playerId);
+  }
+  const beforeTurn = await get(`/api/rooms/${code}?playerId=${encodeURIComponent(playerIds[0])}`);
+  const turnPlayer = beforeTurn.room.game.turnPlayerId;
+  await post(`/api/rooms/${code}/turn`, { playerId: turnPlayer });
+  return { code, turnPlayer };
 }
 
 async function draftSix(code, playerId) {
@@ -167,6 +208,9 @@ class CdpSession {
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (!message.id || !this.pending.has(message.id)) {
+        if (message.method) {
+          this.events.push(message);
+        }
         return;
       }
       const pending = this.pending.get(message.id);
@@ -177,6 +221,7 @@ class CdpSession {
         pending.resolve(message.result);
       }
     };
+    this.events = [];
   }
 
   send(method, params = {}) {
@@ -206,11 +251,12 @@ async function newPage(playerId, viewport) {
   const cdp = new CdpSession(socket);
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
+  await cdp.send("Log.enable");
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: viewport.width,
     height: viewport.height,
-    deviceScaleFactor: 2,
-    mobile: true
+    deviceScaleFactor: viewport.mobile === false ? 1 : 2,
+    mobile: viewport.mobile !== false
   });
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `sessionStorage.setItem('dice-card-player-id', ${JSON.stringify(playerId)}); localStorage.setItem('dice-card-player-name', ${JSON.stringify(playerId)});`
@@ -241,6 +287,57 @@ async function screenshot(cdp, name) {
     captureBeyondViewport: false
   });
   await fs.writeFile(path.join(outDir, `${name}.png`), Buffer.from(data.data, "base64"));
+}
+
+function getConsoleIssues(cdp) {
+  return cdp.events
+    .map((event) => {
+      if (event.method === "Runtime.consoleAPICalled" && ["warning", "error", "assert"].includes(event.params?.type)) {
+        return {
+          source: "console",
+          level: event.params.type,
+          text: (event.params.args || []).map((arg) => arg.value || arg.description || "").join(" ")
+        };
+      }
+      if (event.method === "Runtime.exceptionThrown") {
+        return {
+          source: "exception",
+          level: "error",
+          text: event.params?.exceptionDetails?.text || event.params?.exceptionDetails?.exception?.description || "Runtime exception"
+        };
+      }
+      if (event.method === "Log.entryAdded" && ["warning", "error"].includes(event.params?.entry?.level)) {
+        return {
+          source: event.params.entry.source || "log",
+          level: event.params.entry.level,
+          text: event.params.entry.text || ""
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function assertClean(results) {
+  const failures = results.filter(({ audit }) =>
+    audit.hasHorizontalOverflow ||
+    audit.overflowing.length ||
+    audit.badButtons.length ||
+    audit.consoleIssues.length
+  );
+  if (!failures.length) {
+    return;
+  }
+
+  const details = failures.map(({ label, viewport, audit }) => ({
+    label,
+    viewport: viewport.name || `${viewport.width}x${viewport.height}`,
+    hasHorizontalOverflow: audit.hasHorizontalOverflow,
+    overflowing: audit.overflowing,
+    badButtons: audit.badButtons,
+    consoleIssues: audit.consoleIssues
+  }));
+  throw new Error(`Mobile visual audit failed:\n${JSON.stringify(details, null, 2)}`);
 }
 
 async function waitForServer() {
@@ -355,7 +452,8 @@ const auditExpression = `(() => {
     hasHorizontalOverflow: document.documentElement.scrollWidth > innerWidth + 1 || document.body.scrollWidth > innerWidth + 1,
     dims,
     overflowing,
-    badButtons
+    badButtons,
+    consoleIssues: []
   };
 })()`;
 
