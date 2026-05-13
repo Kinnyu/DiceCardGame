@@ -188,8 +188,10 @@ function renderDraftActions(selectedCount, handSize, draftComplete, context) {
 
 function renderDraftCard(card, options) {
   const { context, index, isSelected, disabled } = options;
+  const cardId = card.instanceId || card.id || "";
+  const isRecentlySelected = Boolean(isSelected && cardId && cardId === context.recentDraftCardId);
   const button = document.createElement("button");
-  button.className = `draft-card${isSelected ? ` selected revealed ${getCardVisualClass(card)}` : ""}`;
+  button.className = `draft-card${isSelected ? ` selected revealed ${getCardVisualClass(card)}` : ""}${isRecentlySelected ? " just-selected" : ""}`;
   button.type = "button";
   button.disabled = disabled || isSelected;
   button.setAttribute("aria-pressed", String(isSelected));
@@ -282,7 +284,8 @@ function renderArrangeSlot(card, index, context) {
   const item = document.createElement("div");
   const cardId = card?.instanceId || card?.id || "";
   const isActive = Boolean(cardId && cardId === context.movedArrangementCardId);
-  item.className = `position-card arrange-slot arrange-order-card${card ? ` filled ${getCardVisualClass(card)}` : ""}${isActive ? " is-active" : ""}`;
+  const moveClass = isActive && context.movedArrangementDirection ? ` move-${context.movedArrangementDirection}` : "";
+  item.className = `position-card arrange-slot arrange-order-card${card ? ` filled ${getCardVisualClass(card)}` : ""}${isActive ? " is-active" : ""}${moveClass}`;
 
   const position = document.createElement("span");
   position.className = "card-position";
@@ -505,7 +508,7 @@ function renderTableCenter(game, room, context, targetHint, actionState) {
   center.append(title);
 
   const dice = document.createElement("div");
-  dice.className = `central-die${context.rollAnimation?.active ? " rolling" : ""}`;
+  dice.className = `central-die${context.rollAnimation?.active ? " rolling" : ""}${context.rollAnimation?.justSettled ? " roll-settled" : ""}`;
   dice.setAttribute("aria-live", "polite");
   dice.textContent = displayValue ?? "·";
   center.append(dice);
@@ -562,6 +565,7 @@ function getTargetHint(game, context) {
     !context.pendingAction;
 
   return {
+    cardKey,
     canClick,
     isAcknowledged,
     isOpen,
@@ -734,6 +738,7 @@ function renderSeatCards(player, handSize, isSelf, targetHint, context) {
       canOpenDetails: Boolean(cardsByPosition.get(position)?.revealed),
       isSelf,
       isTarget,
+      isRecentlyRevealed: Boolean(isTarget && targetHint?.cardKey && targetHint.cardKey === context.recentlyRevealedCardKey),
       ownerPlayerId,
       targetHint: isTarget ? targetHint : null,
       onClick: context.callbacks.handleTargetCardClick,
@@ -748,6 +753,7 @@ function renderBoardCard(card, position, options = {}) {
     canOpenDetails = false,
     isSelf = false,
     isTarget = false,
+    isRecentlyRevealed = false,
     ownerPlayerId = "",
     targetHint = null,
     onClick,
@@ -755,7 +761,7 @@ function renderBoardCard(card, position, options = {}) {
   } = options;
   const interactive = canClick || canOpenDetails;
   const item = document.createElement(interactive ? "button" : "div");
-  item.className = `position-card board-card table-card${card?.revealed ? ` revealed ${getCardVisualClass(card)}` : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}`;
+  item.className = `position-card board-card table-card${card?.revealed ? ` revealed ${getCardVisualClass(card)}` : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}${isRecentlyRevealed ? " just-revealed" : ""}`;
   if (interactive) {
     item.type = "button";
     item.setAttribute("aria-label", canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardDetailLabel(card, position));
@@ -841,12 +847,12 @@ function renderRevealedCardModal(game, context) {
     : null;
 
   if (!modal || !card?.revealed) {
-    existing?.remove();
+    closeRenderedModal(existing);
     return;
   }
 
   const backdrop = document.createElement("div");
-  backdrop.className = "card-modal-backdrop";
+  backdrop.className = `card-modal-backdrop${existing && !existing.classList.contains("is-closing") ? " is-stable" : ""}`;
   backdrop.addEventListener("click", (event) => {
     if (event.target === backdrop) {
       context.callbacks.closeRevealedCardModal();
@@ -854,7 +860,7 @@ function renderRevealedCardModal(game, context) {
   });
 
   const dialog = document.createElement("section");
-  dialog.className = "card-modal";
+  dialog.className = `card-modal${existing && !existing.classList.contains("is-closing") ? " is-stable" : ""}`;
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", "卡牌詳情");
@@ -967,6 +973,15 @@ function renderRevealedCardModal(game, context) {
   if (!existing) {
     context.elements.gamePanel.append(backdrop);
   }
+}
+
+function closeRenderedModal(existing) {
+  if (!existing || existing.classList.contains("is-closing")) {
+    return;
+  }
+
+  existing.classList.add("is-closing");
+  window.setTimeout(() => existing.remove(), 140);
 }
 
 function canUseRevealedCardEffect(game, modal, card, player, context) {

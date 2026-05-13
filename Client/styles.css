@@ -7097,3 +7097,293 @@ body:has(#gamePanel[data-phase="arranging"])::after {
     width: 68px;
   }
 }
+
+/* P2 interaction polish */
+.draft-card,
+.arrange-order-card,
+.table-card,
+.central-die,
+.card-modal-backdrop,
+.settings-backdrop,
+.card-modal,
+.settings-menu {
+  will-change: transform, opacity;
+}
+
+.draft-card,
+.arrange-order-card,
+.table-card,
+.central-die {
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    opacity 160ms ease;
+}
+
+.draft-card:not(:disabled):active,
+.table-card.clickable:not(:disabled):active,
+.arrange-move-button:not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.draft-card.just-selected {
+  animation: draft-select-flip 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.draft-card.just-selected::after {
+  animation: selected-check-pop 420ms cubic-bezier(0.18, 0.9, 0.24, 1.22);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active {
+  animation: arrange-card-settle 420ms ease-out;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active.move-up {
+  animation-name: arrange-card-move-up;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active.move-down {
+  animation-name: arrange-card-move-down;
+}
+
+.central-die {
+  position: relative;
+  overflow: hidden;
+}
+
+.central-die.rolling {
+  animation: dice-roll-tumble 360ms ease-in-out infinite;
+}
+
+.central-die.rolling::after {
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, 0.58) 48%, transparent 62%);
+  content: "";
+  transform: translateX(-70%) rotate(12deg);
+  animation: dice-shine 360ms ease-in-out infinite;
+}
+
+.central-die.roll-settled {
+  animation: dice-result-settle 520ms ease-out;
+}
+
+.table-card.just-revealed {
+  animation: board-card-flip 480ms cubic-bezier(0.2, 0.78, 0.18, 1);
+  transform-origin: center;
+}
+
+.card-modal-backdrop:not(.is-stable),
+.settings-backdrop:not(.hidden):not(.is-closing) {
+  animation: modal-backdrop-in 130ms ease-out both;
+}
+
+.card-modal-backdrop:not(.is-stable) .card-modal,
+.settings-backdrop:not(.hidden):not(.is-closing) .settings-menu {
+  animation: modal-panel-in 150ms ease-out both;
+}
+
+.card-modal-backdrop.is-closing,
+.settings-backdrop.is-closing {
+  pointer-events: none;
+  animation: modal-backdrop-out 130ms ease-in both;
+}
+
+.card-modal-backdrop.is-closing .card-modal,
+.settings-backdrop.is-closing .settings-menu {
+  animation: modal-panel-out 130ms ease-in both;
+}
+
+@keyframes draft-select-flip {
+  0% {
+    transform: rotateY(72deg) scale(0.96);
+    opacity: 0.82;
+  }
+
+  58% {
+    transform: rotateY(-6deg) scale(1.018);
+  }
+
+  100% {
+    transform: rotateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes selected-check-pop {
+  0% {
+    transform: scale(0.45) rotate(-22deg);
+    opacity: 0;
+  }
+
+  70% {
+    transform: scale(1.14) rotate(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes arrange-card-settle {
+  0% {
+    transform: scale(0.985);
+  }
+
+  62% {
+    transform: scale(1.012);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes arrange-card-move-up {
+  0% {
+    transform: translateY(12px) scale(0.99);
+  }
+
+  64% {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes arrange-card-move-down {
+  0% {
+    transform: translateY(-12px) scale(0.99);
+  }
+
+  64% {
+    transform: translateY(2px) scale(1.01);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dice-roll-tumble {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+
+  38% {
+    transform: translateY(-7px) rotate(10deg) scale(1.04);
+  }
+
+  72% {
+    transform: translateY(1px) rotate(-7deg) scale(0.98);
+  }
+}
+
+@keyframes dice-shine {
+  0% {
+    transform: translateX(-72%) rotate(12deg);
+  }
+
+  100% {
+    transform: translateX(72%) rotate(12deg);
+  }
+}
+
+@keyframes dice-result-settle {
+  0% {
+    transform: scale(1.16) rotate(-5deg);
+    box-shadow: 0 0 0 0 rgba(224, 184, 93, 0.34);
+  }
+
+  100% {
+    transform: scale(1) rotate(0);
+    box-shadow: 0 0 0 10px rgba(224, 184, 93, 0);
+  }
+}
+
+@keyframes board-card-flip {
+  0% {
+    transform: rotateY(82deg) scale(0.96);
+    opacity: 0.72;
+  }
+
+  60% {
+    transform: rotateY(-7deg) scale(1.018);
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotateY(0) scale(1);
+  }
+}
+
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-backdrop-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-card,
+  .arrange-order-card,
+  .table-card,
+  .central-die,
+  .card-modal-backdrop,
+  .settings-backdrop,
+  .card-modal,
+  .settings-menu,
+  .central-die.rolling,
+  .central-die.rolling::after,
+  .central-die.roll-settled,
+  .draft-card.just-selected,
+  .draft-card.just-selected::after,
+  .table-card.just-revealed,
+  .shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+}

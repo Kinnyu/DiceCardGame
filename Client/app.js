@@ -106,6 +106,7 @@ const playerId = getOrCreatePlayerId();
 const pollingMs = 1200;
 const handSize = 6;
 const copyFeedbackMs = 1800;
+const rollMinimumAnimationMs = 320;
 
 let currentRoom = null;
 let roomPoll = null;
@@ -119,13 +120,24 @@ let pendingAction = "";
 let arrangement = Array(handSize).fill(null);
 let arrangementHandSignature = "";
 let movedArrangementCardId = "";
+let movedArrangementDirection = "";
 let moveHighlightTimer = null;
 let rollAnimationTimer = null;
+let rollSettleTimer = null;
+let rollMinimumTimer = null;
+let resolveRollMinimumWait = null;
 let rollDisplayValue = null;
 let rollAnimationActive = false;
+let rollJustSettled = false;
+let rollAnimationStartedAt = 0;
 let revealedCardModal = null;
+let recentlyRevealedCardKey = "";
+let recentlyRevealedCardTimer = null;
+let recentDraftCardId = "";
+let recentDraftCardTimer = null;
 let cardUsePending = false;
 let copyFeedbackResetTimer = null;
+let settingsCloseTimer = null;
 const acknowledgedRevealedCards = new Set();
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
@@ -242,6 +254,8 @@ async function leaveRoom() {
   closeSettingsMenu();
   const code = currentRoom.code;
   stopRoomPolling();
+  stopRollAnimation();
+  resetRollUi();
   currentRoom = null;
   history.replaceState(null, "", location.pathname);
   showEntry();
@@ -261,6 +275,8 @@ async function returnToLobby() {
   closeSettingsMenu();
   const code = currentRoom.code;
   stopRoomPolling();
+  stopRollAnimation();
+  resetRollUi();
   resetRevealedCardUi();
   resetCopyRoomCodeFeedback();
   currentRoom = null;
@@ -344,14 +360,28 @@ function toggleSettingsMenu() {
 }
 
 function openSettingsMenu() {
+  if (settingsCloseTimer) {
+    window.clearTimeout(settingsCloseTimer);
+    settingsCloseTimer = null;
+  }
+  settingsMenu.classList.remove("is-closing");
   settingsMenu.classList.remove("hidden");
   settingsButton.setAttribute("aria-expanded", "true");
   settingsCloseButton.focus();
 }
 
 function closeSettingsMenu() {
-  settingsMenu.classList.add("hidden");
   settingsButton.setAttribute("aria-expanded", "false");
+  if (settingsMenu.classList.contains("hidden") || settingsMenu.classList.contains("is-closing")) {
+    return;
+  }
+
+  settingsMenu.classList.add("is-closing");
+  settingsCloseTimer = window.setTimeout(() => {
+    settingsCloseTimer = null;
+    settingsMenu.classList.add("hidden");
+    settingsMenu.classList.remove("is-closing");
+  }, 140);
 }
 
 async function arrangeCards() {
@@ -392,6 +422,7 @@ async function draftCard(cardInstanceId) {
 
   try {
     const payload = await draftCardRequest(code, playerId, cardInstanceId);
+    markDraftCardSelected(cardInstanceId);
     renderRoom(payload.room, requestId);
     if (payload.room?.game?.phase === "drafting") {
       await pollRoomOnce(code, { force: true });
@@ -422,6 +453,19 @@ async function rollTurn() {
 
   try {
     const payload = await rollTurnRequest(code, playerId);
+    if (currentRoom?.code !== code) {
+      stopRollAnimation();
+      resetRollUi();
+      return;
+    }
+
+    await waitForMinimumRollAnimation();
+    if (currentRoom?.code !== code) {
+      stopRollAnimation();
+      resetRollUi();
+      return;
+    }
+
     finishRollAnimation(payload.turn?.diceResult);
     renderRoom(payload.room, requestId);
     if (payload.turn) {
@@ -430,7 +474,11 @@ async function rollTurn() {
     }
   } catch (error) {
     stopRollAnimation();
-    roomMessage.textContent = error.message;
+    if (currentRoom?.code === code) {
+      roomMessage.textContent = error.message;
+    } else {
+      resetRollUi();
+    }
   } finally {
     setBusy("roll", false);
   }
@@ -452,6 +500,8 @@ function enterRoom(room, requestId) {
 function showEntry() {
   closeSettingsMenu();
   stopRoomPolling();
+  stopRollAnimation();
+  resetRollUi();
   resetRevealedCardUi();
   resetCopyRoomCodeFeedback();
   currentRoom = null;
@@ -466,6 +516,8 @@ function showEntry() {
 function showRoomActions() {
   closeSettingsMenu();
   stopRoomPolling();
+  stopRollAnimation();
+  resetRollUi();
   resetRevealedCardUi();
   resetCopyRoomCodeFeedback();
   currentRoom = null;
@@ -485,11 +537,15 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     pendingAction,
     arrangement,
     movedArrangementCardId,
+    movedArrangementDirection,
     rollAnimation: {
       active: rollAnimationActive,
-      displayValue: rollDisplayValue
+      displayValue: rollDisplayValue,
+      justSettled: rollJustSettled
     },
     revealedCardModal,
+    recentDraftCardId,
+    recentlyRevealedCardKey,
     cardUsePending,
     acknowledgedRevealedCards,
     currentRoom: room,
@@ -616,6 +672,8 @@ function setBusy(action, busy) {
 
 function startRollAnimation() {
   stopRollAnimation();
+  clearRollSettle();
+  rollAnimationStartedAt = Date.now();
   rollAnimationActive = true;
   rollDisplayValue = randomDiceFace();
   if (currentRoom) {
@@ -630,6 +688,7 @@ function startRollAnimation() {
 }
 
 function finishRollAnimation(diceResult) {
+  clearRollMinimumWait();
   if (rollAnimationTimer) {
     window.clearInterval(rollAnimationTimer);
     rollAnimationTimer = null;
@@ -638,6 +697,15 @@ function finishRollAnimation(diceResult) {
   const result = Number(diceResult);
   rollAnimationActive = false;
   rollDisplayValue = Number.isInteger(result) ? result : null;
+  rollJustSettled = true;
+  rollSettleTimer = window.setTimeout(() => {
+    rollSettleTimer = null;
+    rollJustSettled = false;
+    rollDisplayValue = null;
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+  }, 520);
 }
 
 function stopRollAnimation() {
@@ -645,8 +713,58 @@ function stopRollAnimation() {
     window.clearInterval(rollAnimationTimer);
     rollAnimationTimer = null;
   }
+  clearRollMinimumWait();
   rollAnimationActive = false;
+  clearRollSettle();
   rollDisplayValue = null;
+  rollAnimationStartedAt = 0;
+}
+
+function resetRollUi() {
+  document.querySelectorAll(".central-die").forEach((die) => {
+    die.classList.remove("rolling", "roll-settled");
+  });
+  rollButton.disabled = false;
+  rollButton.className = "primary-button full-width";
+  rollButton.textContent = "擲骰";
+}
+
+function clearRollSettle() {
+  if (rollSettleTimer) {
+    window.clearTimeout(rollSettleTimer);
+    rollSettleTimer = null;
+  }
+  rollJustSettled = false;
+}
+
+function waitForMinimumRollAnimation() {
+  const remainingMs = rollMinimumAnimationMs - (Date.now() - rollAnimationStartedAt);
+  if (!rollAnimationActive || remainingMs <= 0) {
+    return Promise.resolve();
+  }
+
+  clearRollMinimumWait();
+  return new Promise((resolve) => {
+    resolveRollMinimumWait = resolve;
+    rollMinimumTimer = window.setTimeout(() => {
+      rollMinimumTimer = null;
+      const finishWait = resolveRollMinimumWait;
+      resolveRollMinimumWait = null;
+      finishWait?.();
+    }, remainingMs);
+  });
+}
+
+function clearRollMinimumWait() {
+  if (rollMinimumTimer) {
+    window.clearTimeout(rollMinimumTimer);
+    rollMinimumTimer = null;
+  }
+  if (resolveRollMinimumWait) {
+    const finishWait = resolveRollMinimumWait;
+    resolveRollMinimumWait = null;
+    finishWait();
+  }
 }
 
 function randomDiceFace() {
@@ -780,6 +898,7 @@ function closeRevealedCardModal() {
 function resetRevealedCardUi() {
   revealedCardModal = null;
   cardUsePending = false;
+  clearRecentlyRevealedCard();
 }
 
 async function handleTargetCardClick(position) {
@@ -805,6 +924,7 @@ async function handleTargetCardClick(position) {
     try {
       const payload = await revealCardRequest(code, playerId, position);
       revealedCardModal = getTargetModal(payload.room?.game, position);
+      markRecentlyRevealedCard(revealedCardModal?.key);
       roomMessage.textContent = "";
       renderRoom(payload.room, requestId);
     } catch (error) {
@@ -872,6 +992,7 @@ function moveArrangementCard(fromIndex, toIndex) {
   const nextArrangement = [...arrangement];
   [nextArrangement[fromIndex], nextArrangement[toIndex]] = [nextArrangement[toIndex], nextArrangement[fromIndex]];
   movedArrangementCardId = nextArrangement[toIndex]?.instanceId || nextArrangement[toIndex]?.id || "";
+  movedArrangementDirection = toIndex < fromIndex ? "up" : "down";
   arrangement.splice(0, arrangement.length, ...nextArrangement);
   scheduleMoveHighlightClear();
   if (currentRoom) {
@@ -886,6 +1007,7 @@ function scheduleMoveHighlightClear() {
   moveHighlightTimer = window.setTimeout(() => {
     moveHighlightTimer = null;
     movedArrangementCardId = "";
+    movedArrangementDirection = "";
     if (currentRoom) {
       renderRoom(currentRoom, appliedRoomRequestId);
     }
@@ -894,8 +1016,45 @@ function scheduleMoveHighlightClear() {
 
 function clearMoveHighlight() {
   movedArrangementCardId = "";
+  movedArrangementDirection = "";
   if (moveHighlightTimer) {
     window.clearTimeout(moveHighlightTimer);
     moveHighlightTimer = null;
+  }
+}
+
+function markDraftCardSelected(cardInstanceId) {
+  recentDraftCardId = cardInstanceId || "";
+  if (recentDraftCardTimer) {
+    window.clearTimeout(recentDraftCardTimer);
+  }
+  recentDraftCardTimer = window.setTimeout(() => {
+    recentDraftCardTimer = null;
+    recentDraftCardId = "";
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+  }, 680);
+}
+
+function markRecentlyRevealedCard(cardKey) {
+  recentlyRevealedCardKey = cardKey || "";
+  if (recentlyRevealedCardTimer) {
+    window.clearTimeout(recentlyRevealedCardTimer);
+  }
+  recentlyRevealedCardTimer = window.setTimeout(() => {
+    recentlyRevealedCardTimer = null;
+    recentlyRevealedCardKey = "";
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+  }, 720);
+}
+
+function clearRecentlyRevealedCard() {
+  recentlyRevealedCardKey = "";
+  if (recentlyRevealedCardTimer) {
+    window.clearTimeout(recentlyRevealedCardTimer);
+    recentlyRevealedCardTimer = null;
   }
 }
