@@ -189,7 +189,7 @@ function renderDraftActions(selectedCount, handSize, draftComplete, context) {
 function renderDraftCard(card, options) {
   const { context, index, isSelected, disabled } = options;
   const button = document.createElement("button");
-  button.className = `draft-card${isSelected ? " selected revealed" : ""}`;
+  button.className = `draft-card${isSelected ? ` selected revealed ${getCardVisualClass(card)}` : ""}`;
   button.type = "button";
   button.disabled = disabled || isSelected;
   button.setAttribute("aria-pressed", String(isSelected));
@@ -207,6 +207,11 @@ function renderDraftCard(card, options) {
   label.className = "card-position";
   label.textContent = "已選";
   button.append(label);
+
+  const icon = document.createElement("span");
+  icon.className = `card-art-icon ${getCardVisualClass(card)}`;
+  icon.setAttribute("aria-hidden", "true");
+  button.append(icon);
 
   const name = document.createElement("strong");
   name.textContent = card.name || "卡牌";
@@ -277,7 +282,7 @@ function renderArrangeSlot(card, index, context) {
   const item = document.createElement("div");
   const cardId = card?.instanceId || card?.id || "";
   const isActive = Boolean(cardId && cardId === context.movedArrangementCardId);
-  item.className = `position-card arrange-slot arrange-order-card${card ? " filled" : ""}${isActive ? " is-active" : ""}`;
+  item.className = `position-card arrange-slot arrange-order-card${card ? ` filled ${getCardVisualClass(card)}` : ""}${isActive ? " is-active" : ""}`;
 
   const position = document.createElement("span");
   position.className = "card-position";
@@ -285,8 +290,8 @@ function renderArrangeSlot(card, index, context) {
   item.append(position);
 
   const icon = document.createElement("span");
-  icon.className = "arrange-card-icon";
-  icon.textContent = card ? getArrangeCardIcon(card) : "◇";
+  icon.className = `arrange-card-icon card-art-icon ${card ? getCardVisualClass(card) : "card-art-empty"}`;
+  icon.setAttribute("aria-hidden", "true");
   item.append(icon);
 
   const name = document.createElement("strong");
@@ -362,19 +367,53 @@ function renderArrangeOrderSlots(cards, handSize) {
   });
 }
 
-function getArrangeCardIcon(card) {
+function getCardVisualClass(card) {
+  return `card-art-${getCardVisualType(card)}`;
+}
+
+function getCardVisualType(card) {
+  const text = normalizeCardVisualText(card);
+  const value = Number(card?.value);
+
+  if (includesAny(text, ["reverse", "rotate", "turn", "\u9006\u8f49", "\u56de\u8f49"])) {
+    return "reverse";
+  }
+  if (includesAny(text, ["guard", "shield", "defense", "protect", "\u9632\u79a6", "\u9632\u8b77", "\u8b77\u76fe"])) {
+    return "defense";
+  }
+  if (includesAny(text, ["double", "multiply", "multiplier", "times", "\u500d\u6578", "\u52a0\u500d", "\u96d9\u500d"])) {
+    return "multiply";
+  }
+  if (includesAny(text, ["final", "finish", "endgame", "\u7d42\u5c40", "\u7d42\u5834", "\u7d50\u7b97"])) {
+    return "finale";
+  }
+  if (includesAny(text, ["attack", "damage", "\u653b\u64ca", "\u6263\u5206"])) {
+    return "minus";
+  }
+  if (Number.isFinite(value) && value < 0) {
+    return "minus";
+  }
+  if (Number.isFinite(value) && value > 0) {
+    return "plus";
+  }
   if (card?.type === "action") {
-    return "↻";
+    return "action";
   }
   if (card?.type === "special") {
-    return "♛";
+    return "special";
   }
+  return "neutral";
+}
 
-  const value = Number(card?.value);
-  if (Number.isFinite(value) && value < 0) {
-    return "−";
-  }
-  return "+";
+function normalizeCardVisualText(card) {
+  return [card?.id, card?.name, card?.type, card?.description, card?.effect]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function includesAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword));
 }
 
 export function renderBoard(self, context) {
@@ -716,7 +755,7 @@ function renderBoardCard(card, position, options = {}) {
   } = options;
   const interactive = canClick || canOpenDetails;
   const item = document.createElement(interactive ? "button" : "div");
-  item.className = `position-card board-card table-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}`;
+  item.className = `position-card board-card table-card${card?.revealed ? ` revealed ${getCardVisualClass(card)}` : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}`;
   if (interactive) {
     item.type = "button";
     item.setAttribute("aria-label", canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardDetailLabel(card, position));
@@ -733,6 +772,13 @@ function renderBoardCard(card, position, options = {}) {
   label.className = "card-position";
   label.textContent = String(position);
   item.append(label);
+
+  if (card?.revealed) {
+    const icon = document.createElement("span");
+    icon.className = `card-art-icon ${getCardVisualClass(card)}`;
+    icon.setAttribute("aria-hidden", "true");
+    item.append(icon);
+  }
 
   const title = document.createElement("strong");
   title.textContent = canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardTitle(card);
@@ -827,7 +873,7 @@ function renderRevealedCardModal(game, context) {
   dialog.append(modalTitle);
 
   const largeCard = document.createElement("article");
-  largeCard.className = `large-card ${Number(card.value) >= 0 ? "score-positive" : "score-negative"}`;
+  largeCard.className = `large-card ${Number(card.value) >= 0 ? "score-positive" : "score-negative"} ${getCardVisualClass(card)}`;
 
   const position = document.createElement("span");
   position.className = "card-position";
@@ -846,11 +892,16 @@ function renderRevealedCardModal(game, context) {
   const diceArt = document.createElement("span");
   diceArt.className = "large-card-dice";
   diceArt.textContent = "⚂";
+  diceArt.className = `large-card-icon card-art-icon ${getCardVisualClass(card)}`;
+  diceArt.textContent = "";
+  diceArt.setAttribute("aria-hidden", "true");
   art.append(diceArt);
 
   const motion = document.createElement("span");
   motion.className = "large-card-motion";
   motion.textContent = "↻";
+  motion.textContent = "";
+  motion.setAttribute("aria-hidden", "true");
   art.append(motion);
 
   largeCard.append(art);
