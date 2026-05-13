@@ -499,6 +499,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
       closeRevealedCardModal,
       draftCard,
       handleTargetCardClick,
+      openCardDetail,
       useRevealedCard,
       resetArrangement,
       syncArrangement,
@@ -676,6 +677,40 @@ function getTargetModal(game, position) {
   };
 }
 
+function getCardDetailModal(game, ownerPlayerId, position) {
+  const roomCode = currentRoom?.code;
+  const cardPosition = Number(position);
+  if (!roomCode || !game || !ownerPlayerId || !Number.isInteger(cardPosition)) {
+    return null;
+  }
+
+  const owner = Array.isArray(game.players)
+    ? game.players.find((candidate) => candidate.id === ownerPlayerId) || null
+    : null;
+  const card = Array.isArray(owner?.receivedCards)
+    ? owner.receivedCards.find((candidate) => candidate?.position === cardPosition) || null
+    : null;
+  if (!card?.revealed) {
+    return null;
+  }
+
+  return {
+    key: getRevealedCardKey(roomCode, owner.id, cardPosition, card, getMatchingLastRoll(game, owner.id, cardPosition)),
+    revealed: true,
+    playerId: owner.id,
+    position: cardPosition
+  };
+}
+
+function getMatchingLastRoll(game, ownerPlayerId, position) {
+  const lastRoll = game?.dice?.lastRoll;
+  const rollPosition = Number(lastRoll?.position ?? lastRoll?.result);
+  if (lastRoll?.playerId === ownerPlayerId && rollPosition === position) {
+    return lastRoll;
+  }
+  return null;
+}
+
 function getCurrentTargetModal(game) {
   const lastRoll = game?.dice?.lastRoll;
   if (!["pending", "revealed"].includes(lastRoll?.status)) {
@@ -777,6 +812,23 @@ async function handleTargetCardClick(position) {
     } finally {
       setBusy("reveal", false);
     }
+    return;
+  }
+
+  revealedCardModal = modal;
+  roomMessage.textContent = "";
+  if (currentRoom) {
+    renderRoom(currentRoom, appliedRoomRequestId);
+  }
+}
+
+function openCardDetail(ownerPlayerId, position) {
+  if (pendingAction || cardUsePending) {
+    return;
+  }
+
+  const modal = getCardDetailModal(currentRoom?.game, ownerPlayerId, position);
+  if (!modal) {
     return;
   }
 

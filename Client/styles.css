@@ -6307,3 +6307,284 @@ body:has(#gamePanel[data-phase="arranging"])::after {
     min-width: 28px;
   }
 }
+
+/* Card Detail Modal P0 */
+.card-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(31, 25, 17, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.card-modal {
+  width: min(100%, 306px);
+  max-height: calc(100dvh - 28px);
+  display: grid;
+  grid-template-rows: auto auto auto auto auto;
+  gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 27px 14px 12px;
+  border: 1px solid rgba(126, 104, 63, 0.48);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.58), transparent 136px),
+    linear-gradient(180deg, rgba(255, 250, 235, 0.98), rgba(242, 226, 193, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 18px 44px rgba(31, 25, 17, 0.38);
+}
+
+.card-modal::before {
+  inset: 7px;
+}
+
+.card-modal::after {
+  inset: 11px;
+}
+
+.card-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 31px;
+  min-width: 31px;
+  min-height: 31px;
+  padding: 0;
+  border: 1px solid rgba(126, 104, 63, 0.32);
+  border-radius: 7px;
+  color: #6b5a3b;
+  background: rgba(255, 249, 231, 0.76);
+  font-size: 1.2rem;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.modal-title {
+  margin: 0 34px 1px 0;
+  color: #263126;
+  font-size: 1.05rem;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.modal-title::before {
+  margin-right: 6px;
+  color: #6f7d58;
+  content: "⚔";
+}
+
+.large-card {
+  width: min(172px, 74%);
+  min-height: 222px;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  align-items: center;
+  justify-self: center;
+  gap: 7px;
+  overflow: hidden;
+  padding: 10px;
+  border: 4px solid rgba(57, 91, 64, 0.68);
+  border-radius: 10px;
+  background:
+    linear-gradient(rgba(180, 149, 89, 0.7) 0 0) left 7px top 7px / 20px 1px no-repeat,
+    linear-gradient(rgba(180, 149, 89, 0.7) 0 0) left 7px top 7px / 1px 20px no-repeat,
+    linear-gradient(rgba(180, 149, 89, 0.7) 0 0) right 7px bottom 7px / 20px 1px no-repeat,
+    linear-gradient(rgba(180, 149, 89, 0.7) 0 0) right 7px bottom 7px / 1px 20px no-repeat,
+    linear-gradient(180deg, #fffdf4, #f5ead0);
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(63, 48, 26, 0.16);
+}
+
+.large-card .card-position {
+  justify-self: start;
+  color: #4d714d;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.large-card-art {
+  position: relative;
+  width: 100%;
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  color: #5d7659;
+}
+
+.large-card-value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255, 253, 244, 0.92);
+  border-radius: 999px;
+  background: #66815d;
+  color: #fffdf4;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.large-card-dice {
+  font-size: 4rem;
+  line-height: 1;
+  text-shadow: 0 2px 0 rgba(255, 253, 244, 0.86);
+  transform: rotate(12deg);
+}
+
+.large-card-motion {
+  position: absolute;
+  right: 15px;
+  bottom: 4px;
+  color: #68815d;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.large-card h3 {
+  margin: 0;
+  color: #313a2f;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.28rem;
+  line-height: 1.12;
+}
+
+.large-card-effect {
+  justify-self: center;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(223, 232, 220, 0.86);
+  color: #315d55;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.score-negative .large-card-value {
+  background: #9b5b43;
+}
+
+.score-negative .large-card-effect {
+  background: rgba(255, 235, 224, 0.86);
+  color: #9b5b43;
+}
+
+.card-modal-meta {
+  display: grid;
+  gap: 0;
+  margin: 2px 0 0;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: rgba(230, 219, 196, 0.56);
+}
+
+.card-modal-meta div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(126, 104, 63, 0.14);
+}
+
+.card-modal-meta div:last-child {
+  border-bottom: 0;
+}
+
+.card-modal-meta dt {
+  color: #5d4c2a;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.card-modal-meta dd {
+  min-width: 0;
+  margin: 0;
+  justify-self: end;
+  color: #263126;
+  font-size: 0.74rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.card-modal-effect-panel {
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: rgba(230, 219, 196, 0.38);
+}
+
+.card-modal-effect-panel h4 {
+  margin: 0;
+  color: #5d4c2a;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.card-modal-effect-panel h4::before {
+  margin-right: 5px;
+  content: "✦";
+}
+
+.card-modal-effect-panel p {
+  margin: 0;
+  color: #263126;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.card-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.card-modal-actions.single-action {
+  grid-template-columns: 1fr;
+}
+
+.card-modal-actions button {
+  min-width: 0;
+  min-height: 38px;
+  border-radius: 7px;
+}
+
+.card-modal-actions .primary-button {
+  background: linear-gradient(180deg, #617d65, #4f6b55);
+}
+
+.table-card.revealed,
+.table-card.used {
+  cursor: pointer;
+}
+
+@media (max-width: 380px) {
+  .card-modal-backdrop {
+    padding: 8px;
+  }
+
+  .card-modal {
+    width: min(100%, 296px);
+    gap: 7px;
+    padding-inline: 12px;
+  }
+
+  .large-card {
+    width: min(166px, 76%);
+    min-height: 210px;
+  }
+}

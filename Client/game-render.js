@@ -685,28 +685,48 @@ function renderSeatBadge(text) {
 function renderSeatCards(player, handSize, isSelf, targetHint, context) {
   const receivedCards = Array.isArray(player?.receivedCards) ? player.receivedCards.filter(Boolean) : [];
   const cardsByPosition = new Map(receivedCards.map((card) => [card.position, card]));
+  const ownerPlayerId = player?.id || "";
 
   return Array.from({ length: handSize }, (_, index) => {
     const position = index + 1;
     const isTarget = targetHint?.playerId === player?.id && targetHint.position === position;
     return renderBoardCard(cardsByPosition.get(position), position, {
       canClick: Boolean(isTarget && targetHint?.canClick),
+      canOpenDetails: Boolean(cardsByPosition.get(position)?.revealed),
       isSelf,
       isTarget,
+      ownerPlayerId,
       targetHint: isTarget ? targetHint : null,
-      onClick: context.callbacks.handleTargetCardClick
+      onClick: context.callbacks.handleTargetCardClick,
+      onOpenDetails: context.callbacks.openCardDetail
     });
   });
 }
 
 function renderBoardCard(card, position, options = {}) {
-  const { canClick = false, isSelf = false, isTarget = false, targetHint = null, onClick } = options;
-  const item = document.createElement(canClick ? "button" : "div");
+  const {
+    canClick = false,
+    canOpenDetails = false,
+    isSelf = false,
+    isTarget = false,
+    ownerPlayerId = "",
+    targetHint = null,
+    onClick,
+    onOpenDetails
+  } = options;
+  const interactive = canClick || canOpenDetails;
+  const item = document.createElement(interactive ? "button" : "div");
   item.className = `position-card board-card table-card${card?.revealed ? " revealed" : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}`;
-  if (canClick) {
+  if (interactive) {
     item.type = "button";
-    item.setAttribute("aria-label", getBoardCardActionLabel(position, targetHint));
-    item.addEventListener("click", () => onClick(position));
+    item.setAttribute("aria-label", canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardDetailLabel(card, position));
+    item.addEventListener("click", () => {
+      if (canClick) {
+        onClick(position);
+        return;
+      }
+      onOpenDetails(ownerPlayerId, position);
+    });
   }
 
   const label = document.createElement("span");
@@ -738,6 +758,10 @@ function getBoardCardActionLabel(position, targetHint) {
     return `處理第 ${position} 張`;
   }
   return `翻開第 ${position} 張`;
+}
+
+function getBoardCardDetailLabel(card, position) {
+  return `查看第 ${position} 張${card?.name ? `，${card.name}` : ""}詳情`;
 }
 
 function getBoardCardTitle(card) {
@@ -810,6 +834,27 @@ function renderRevealedCardModal(game, context) {
   position.textContent = `第 ${modal.position} 張`;
   largeCard.append(position);
 
+  const art = document.createElement("div");
+  art.className = "large-card-art";
+  art.setAttribute("aria-hidden", "true");
+
+  const valueBadge = document.createElement("span");
+  valueBadge.className = "large-card-value";
+  valueBadge.textContent = formatCardValue(card);
+  art.append(valueBadge);
+
+  const diceArt = document.createElement("span");
+  diceArt.className = "large-card-dice";
+  diceArt.textContent = "⚂";
+  art.append(diceArt);
+
+  const motion = document.createElement("span");
+  motion.className = "large-card-motion";
+  motion.textContent = "↻";
+  art.append(motion);
+
+  largeCard.append(art);
+
   const title = document.createElement("h3");
   title.textContent = card.name || "已翻開卡牌";
   largeCard.append(title);
@@ -819,21 +864,26 @@ function renderRevealedCardModal(game, context) {
   effect.textContent = card.type === "score" ? describeScoreEffect(card) : describeCard(card);
   largeCard.append(effect);
 
-  if (card.description) {
-    const description = document.createElement("p");
-    description.className = "large-card-description";
-    description.textContent = card.description;
-    largeCard.append(description);
-  }
-
   dialog.append(largeCard);
 
   const metaList = document.createElement("dl");
   metaList.className = "card-modal-meta";
   metaList.append(renderMetaItem("位置", `第 ${modal.position} 張`));
-  metaList.append(renderMetaItem("來源", `${context.getPlayerNameById(modal.playerId, context.currentRoom)} 擲來`));
-  metaList.append(renderMetaItem("狀態", card.used ? "已使用" : "已翻開"));
+  metaList.append(renderMetaItem("來源", getCardSourceText(game, modal, context)));
+  metaList.append(renderMetaItem("狀態", getCardStatusText(card)));
   dialog.append(metaList);
+
+  const effectPanel = document.createElement("section");
+  effectPanel.className = "card-modal-effect-panel";
+
+  const effectTitle = document.createElement("h4");
+  effectTitle.textContent = "效果";
+  effectPanel.append(effectTitle);
+
+  const effectDescription = document.createElement("p");
+  effectDescription.textContent = getCardEffectDescription(card);
+  effectPanel.append(effectDescription);
+  dialog.append(effectPanel);
 
   const canUseEffect = canUseRevealedCardEffect(game, modal, card, player, context);
   const actions = document.createElement("div");
@@ -889,6 +939,58 @@ function canUseRevealedCardEffect(game, modal, card, player, context) {
       !player?.eliminated &&
       !acknowledged
   );
+}
+
+function formatCardValue(card) {
+  const value = Number(card?.value);
+  if (!Number.isFinite(value)) {
+    return "•";
+  }
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function getCardSourceText(game, modal, context) {
+  const sourcePlayer = getCardSourcePlayer(game, modal?.playerId);
+  if (!sourcePlayer) {
+    return "未知來源";
+  }
+
+  const sourceName = context.getPlayerNameById(sourcePlayer.id, context.currentRoom);
+  return sourcePlayer.id === context.playerId ? "由你傳來" : `${sourceName} 傳來`;
+}
+
+function getCardSourcePlayer(game, ownerPlayerId) {
+  const players = Array.isArray(game?.players) ? game.players.filter(Boolean) : [];
+  if (!players.length || !ownerPlayerId) {
+    return null;
+  }
+
+  const ownerIndex = players.findIndex((player) => player.id === ownerPlayerId);
+  if (ownerIndex === -1) {
+    return null;
+  }
+
+  return players[(ownerIndex - 1 + players.length) % players.length] || null;
+}
+
+function getCardStatusText(card) {
+  if (card?.used) {
+    return "已使用";
+  }
+  if (card?.revealed) {
+    return "已翻開";
+  }
+  return "未公開";
+}
+
+function getCardEffectDescription(card) {
+  if (card?.description) {
+    return card.description;
+  }
+  if (card?.type === "score") {
+    return `使用後，${describeScoreEffect(card)}。`;
+  }
+  return describeCard(card);
 }
 
 function renderMetaItem(label, value) {
