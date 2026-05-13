@@ -4535,3 +4535,504 @@ body:has(#entryView:not(.hidden))::after {
 .shell:has(#entryView:not(.hidden)) .entry-start-button:hover:not(:disabled) {
   background: linear-gradient(180deg, #668467, #486f57);
 }
+
+/* Room Flow P0 */
+body:has(#lobbyView:not(.hidden))::before {
+  background:
+    radial-gradient(circle at 14% 23%, rgba(36, 49, 40, 0.06) 0 16px, transparent 17px),
+    radial-gradient(circle at 70% 77%, rgba(36, 49, 40, 0.055) 0 28px, transparent 29px),
+    radial-gradient(circle at 28% 18%, rgba(36, 49, 40, 0.045) 0 1.7px, transparent 2px),
+    radial-gradient(circle at 69% 40%, rgba(36, 49, 40, 0.04) 0 1.7px, transparent 2px),
+    repeating-linear-gradient(20deg, rgba(128, 104, 61, 0.03) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, #fbf3dd, #efdfba);
+}
+
+body:has(#lobbyView:not(.hidden))::after {
+  opacity: 0.74;
+  background:
+    linear-gradient(18deg, transparent 0 68%, rgba(246, 238, 217, 0.96) 68% 100%),
+    linear-gradient(18deg, transparent 0 64%, rgba(34, 49, 40, 0.88) 64% 100%),
+    radial-gradient(circle at 85% 78%, #e9dcc0 0 19px, transparent 20px),
+    radial-gradient(circle at 80% 75%, #4b3b25 0 3px, transparent 4px),
+    radial-gradient(circle at 88% 79%, #4b3b25 0 3px, transparent 4px),
+    linear-gradient(150deg, transparent 0 69%, rgba(34, 49, 40, 0.8) 69% 100%),
+    linear-gradient(150deg, transparent 0 72%, rgba(246, 238, 217, 0.94) 72% 100%);
+  background-size:
+    112px 152px,
+    126px 158px,
+    120px 120px,
+    120px 120px,
+    120px 120px,
+    128px 162px,
+    112px 150px;
+  background-position:
+    right -49px top -50px,
+    left -61px top -52px,
+    right -36px bottom 104px,
+    right -36px bottom 104px,
+    right -36px bottom 104px,
+    right -55px bottom -58px,
+    left -52px bottom -54px;
+  background-repeat: no-repeat;
+}
+
+.shell:has(#lobbyView:not(.hidden)) {
+  width: min(390px, 100%);
+  min-height: 100dvh;
+  padding: 30px 7px;
+  align-content: start;
+}
+
+.room-action-view {
+  min-height: calc(100dvh - 60px);
+  grid-template-rows: auto auto auto auto auto 1fr;
+  gap: 20px;
+  padding: clamp(34px, 6.2dvh, 52px) 22px 34px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.room-action-view::before,
+.room-action-view::after {
+  display: none;
+}
+
+.room-action-brand {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  color: var(--ref-ink);
+  line-height: 1;
+  text-align: center;
+}
+
+.room-action-brand .brand-mark {
+  width: 66px;
+  height: 42px;
+  margin: 0 0 -2px;
+}
+
+.room-action-brand .brand-card {
+  left: 12px;
+  top: 8px;
+  width: 24px;
+  height: 31px;
+  border-color: rgba(201, 171, 107, 0.86);
+}
+
+.room-action-brand .brand-die {
+  right: 14px;
+  top: 2px;
+  width: 26px;
+  border-color: rgba(201, 171, 107, 0.74);
+}
+
+.room-action-brand strong {
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 2.15rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.room-action-brand > span {
+  margin-top: 3px;
+  color: #8a7044;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.18em;
+}
+
+.room-action-view .panel-heading {
+  gap: 8px;
+  margin: -3px 0 2px;
+}
+
+.room-action-view .panel-heading .eyebrow {
+  display: grid;
+  grid-template-columns: 36px auto 36px;
+  align-items: center;
+  gap: 8px;
+  color: #456a63;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.room-action-view .panel-heading .eyebrow::before,
+.room-action-view .panel-heading .eyebrow::after {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ref-gold));
+  content: "";
+}
+
+.room-action-view .panel-heading .eyebrow::after {
+  transform: scaleX(-1);
+}
+
+.room-action-view .panel-heading h2 {
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(2.25rem, 12vw, 3.2rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.room-action-view .panel-heading::after {
+  width: min(178px, 72%);
+  height: 11px;
+  margin-top: 7px;
+  background:
+    radial-gradient(circle at center, var(--ref-gold) 0 2.5px, transparent 3px),
+    linear-gradient(var(--ref-gold) 0 0) left center / 78px 1px no-repeat,
+    linear-gradient(var(--ref-gold) 0 0) right center / 78px 1px no-repeat;
+}
+
+#lobbyView > .field {
+  order: 3;
+}
+
+#lobbyView .join-row {
+  order: 4;
+}
+
+#lobbyView .actions {
+  order: 5;
+  margin-top: 8px;
+}
+
+#lobbyView .message {
+  order: 6;
+}
+
+#lobbyView .field {
+  position: relative;
+  gap: 9px;
+  color: var(--ref-ink);
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.02rem;
+}
+
+#lobbyView .field span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+}
+
+#lobbyView .field span::after {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(180, 149, 89, 0.56), transparent);
+  content: "";
+}
+
+#lobbyView input {
+  min-height: 48px;
+  padding-left: 58px;
+  border-color: rgba(128, 104, 61, 0.38);
+  background: rgba(255, 251, 240, 0.76);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 750;
+}
+
+#lobbyView .field:has(input)::before {
+  position: absolute;
+  left: 50px;
+  bottom: 11px;
+  width: 1px;
+  height: 26px;
+  background: rgba(128, 104, 61, 0.22);
+  content: "";
+}
+
+#lobbyView .field:has(#nameInput)::after,
+#lobbyView .field:has(#roomCodeInput)::after {
+  position: absolute;
+  left: 16px;
+  bottom: 11px;
+  width: 27px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: #5f7a66;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+#lobbyView .field:has(#nameInput)::after {
+  background:
+    radial-gradient(circle at 50% 32%, #5f7a66 0 5px, transparent 5.5px),
+    radial-gradient(ellipse at 50% 76%, #5f7a66 0 9px, transparent 9.5px);
+  content: "";
+}
+
+#lobbyView .field:has(#roomCodeInput)::after {
+  content: "#";
+}
+
+#lobbyView .join-row {
+  grid-template-columns: minmax(0, 1fr) minmax(74px, 0.34fr);
+  gap: 10px;
+}
+
+#joinRoomButton {
+  min-height: 48px;
+  border-width: 2px;
+  color: #0f5552;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.08rem;
+}
+
+#joinRoomButton::after,
+#createRoomButton::after {
+  padding-left: 8px;
+  content: "›";
+}
+
+#createRoomButton {
+  min-height: 58px;
+  width: min(220px, 82%);
+  justify-self: center;
+  border-width: 2px;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.36rem;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.12),
+    0 8px 14px rgba(21, 90, 84, 0.25),
+    0 2px 0 rgba(86, 61, 26, 0.32);
+}
+
+#createRoomButton::before {
+  display: inline-grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  margin-right: 12px;
+  border: 1px solid rgba(255, 245, 220, 0.72);
+  border-radius: 7px;
+  color: #fff5dc;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.18rem;
+  content: "✥";
+}
+
+body:has(#roomView:not(.hidden))::before {
+  width: min(100%, 390px);
+  background:
+    linear-gradient(90deg, rgba(47, 71, 56, 0.97) 0 14px, transparent 14px calc(100% - 14px), rgba(47, 71, 56, 0.97) calc(100% - 14px)),
+    radial-gradient(circle at 25% 15%, rgba(36, 49, 40, 0.05) 0 1.7px, transparent 2px),
+    radial-gradient(circle at 70% 36%, rgba(36, 49, 40, 0.045) 0 1.7px, transparent 2px),
+    repeating-linear-gradient(20deg, rgba(128, 104, 61, 0.03) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, #fbf3dd, #efdfba);
+}
+
+body:has(#roomView:not(.hidden))::after {
+  opacity: 0.78;
+  background:
+    radial-gradient(circle at 12% 7%, #d6c7a5 0 42px, transparent 43px),
+    radial-gradient(circle at 9% 5%, #45331f 0 3px, transparent 4px),
+    radial-gradient(circle at 13% 7%, #45331f 0 3px, transparent 4px),
+    linear-gradient(18deg, transparent 0 68%, rgba(246, 238, 217, 0.96) 68% 100%),
+    linear-gradient(18deg, transparent 0 64%, rgba(34, 49, 40, 0.88) 64% 100%),
+    linear-gradient(150deg, transparent 0 68%, rgba(110, 64, 42, 0.72) 68% 100%),
+    linear-gradient(150deg, transparent 0 72%, rgba(246, 238, 217, 0.94) 72% 100%);
+  background-size:
+    154px 154px,
+    154px 154px,
+    154px 154px,
+    112px 152px,
+    126px 158px,
+    128px 162px,
+    112px 150px;
+  background-position:
+    left -63px top -62px,
+    left -63px top -62px,
+    left -63px top -62px,
+    right -49px top -50px,
+    right -55px top -52px,
+    left -52px bottom -58px,
+    right -52px bottom -54px;
+  background-repeat: no-repeat;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) {
+  width: min(390px, 100%);
+  min-height: 100dvh;
+  padding: 24px 28px 18px;
+  align-content: start;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-panel {
+  min-height: calc(100dvh - 42px);
+  gap: 14px;
+  padding: clamp(54px, 8dvh, 72px) 24px 22px;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 50% 13%, rgba(255, 255, 255, 0.58), transparent 110px),
+    linear-gradient(180deg, rgba(255, 249, 231, 0.98), rgba(242, 226, 193, 0.97));
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-panel::before {
+  inset: 8px;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-title .eyebrow {
+  display: none;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-title h2 {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(2.15rem, 11vw, 2.75rem);
+  line-height: 1;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-title h2::before {
+  width: 58px;
+  height: 25px;
+  background:
+    linear-gradient(90deg, transparent 0 40%, rgba(201, 171, 107, 0.88) 40% 43%, transparent 43% 57%, rgba(201, 171, 107, 0.88) 57% 60%, transparent 60%),
+    linear-gradient(180deg, #174b43, #0c3534);
+  clip-path: polygon(6% 0, 48% 16%, 50% 100%, 0 86%);
+  filter: drop-shadow(16px -2px 0 #a9553e);
+  content: "";
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-title h2::after {
+  width: 126px;
+  height: 12px;
+  background:
+    radial-gradient(circle at center, var(--ref-gold) 0 2.5px, transparent 3px),
+    linear-gradient(var(--ref-gold) 0 0) left center / 54px 1px no-repeat,
+    linear-gradient(var(--ref-gold) 0 0) right center / 54px 1px no-repeat;
+  content: "";
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-topbar .icon-button {
+  top: 15px;
+  right: 12px;
+  min-height: 31px;
+}
+
+.room-code-card,
+.room-subheading {
+  position: relative;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-code-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 58px;
+  padding: 7px 9px;
+  margin-top: 1px;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-code-card span,
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-subheading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.04rem;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-code-card span {
+  grid-column: 1 / -1;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-code-card span::before {
+  color: #577157;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  content: "⌂";
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-subheading::before {
+  color: #577157;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  content: "♟";
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-code-card strong {
+  justify-self: center;
+  padding-left: 14px;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 2.15rem;
+  letter-spacing: 0.08em;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-code-card .secondary-button {
+  min-width: 64px;
+  min-height: 36px;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .room-subheading {
+  margin: 2px 0 -4px;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .player-list {
+  gap: 7px;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .player-item {
+  min-height: 49px;
+  padding: 5px 7px;
+  background: rgba(255, 249, 231, 0.52);
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .host-badge {
+  min-width: 50px;
+  text-align: center;
+  color: #5f6758;
+  background: #d8d8ca;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .host-badge.waiting {
+  color: #8a6321;
+  background: #f0dfbb;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) #startGameButton,
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .ready-leave-button {
+  width: min(206px, 88%);
+  justify-self: center;
+  min-height: 46px;
+  font-family: Georgia, "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: 1.35rem;
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) #startGameButton {
+  margin-top: 3px;
+  background: linear-gradient(180deg, #5c785e, #3f644e);
+}
+
+.shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) .ready-leave-button {
+  margin-top: -1px;
+  border: 1px solid rgba(128, 104, 61, 0.32);
+  color: #9a3f36;
+  background: rgba(255, 249, 231, 0.62);
+  box-shadow: none;
+}
+
+.shell:has(#gamePanel:not(.hidden)) .ready-leave-button {
+  display: none;
+}
+
+@media (max-width: 360px) {
+  .shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) {
+    padding-inline: 18px;
+  }
+
+  .room-action-view {
+    padding-inline: 18px;
+  }
+
+  #lobbyView .join-row {
+    grid-template-columns: minmax(0, 1fr) 68px;
+  }
+}

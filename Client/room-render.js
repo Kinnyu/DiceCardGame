@@ -13,6 +13,8 @@ export function renderRoom(room, context) {
   elements.settingsPlayerCount.textContent = `${room.players.length} 人`;
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";
   elements.startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
+  elements.startGameButton.classList.toggle("hidden", room.hostId !== playerId || room.status !== "waiting");
+  elements.readyLeaveRoomButton.disabled = Boolean(pendingAction);
   renderPlayers(room, context);
   renderGame(room, {
     ...context,
@@ -67,9 +69,6 @@ export function getPhaseTitle(phase) {
 }
 
 function getPlayerStatus(room, player, selfId) {
-  if (room.status === "playing") {
-    return "遊戲中";
-  }
   if (player.isHost || player.id === selfId) {
     return "已準備";
   }

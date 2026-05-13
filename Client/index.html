@@ -34,6 +34,15 @@
       </section>
 
       <section class="lobby-panel room-action-view hidden" id="lobbyView" aria-labelledby="roomActionTitle">
+        <div class="room-action-brand" aria-label="Dice Card Game">
+          <div class="brand-mark" aria-hidden="true">
+            <span class="brand-card"></span>
+            <span class="brand-die"></span>
+          </div>
+          <strong>DICE</strong>
+          <span>CARD GAME</span>
+        </div>
+
         <div class="panel-heading">
           <p class="eyebrow">ROOM</p>
           <h2 id="roomActionTitle">房間操作</h2>
@@ -99,6 +108,7 @@
         <ul class="player-list" id="playerList"></ul>
 
         <button id="startGameButton" class="primary-button full-width" type="button">開始遊戲</button>
+        <button id="readyLeaveRoomButton" class="danger-button ready-leave-button full-width" type="button">離開房間</button>
 
         <section class="game-panel hidden" id="gamePanel" aria-label="遊戲畫面">
           <div class="game-heading">

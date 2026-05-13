@@ -21,6 +21,7 @@ const roomCodeInput = document.querySelector("#roomCodeInput");
 const createRoomButton = document.querySelector("#createRoomButton");
 const joinRoomButton = document.querySelector("#joinRoomButton");
 const leaveRoomButton = document.querySelector("#leaveRoomButton");
+const readyLeaveRoomButton = document.querySelector("#readyLeaveRoomButton");
 const returnToLobbyButton = document.querySelector("#returnToLobbyButton");
 const startGameButton = document.querySelector("#startGameButton");
 const roomCopyCodeButton = document.querySelector("#roomCopyCodeButton");
@@ -64,6 +65,7 @@ const elements = {
   createRoomButton,
   joinRoomButton,
   leaveRoomButton,
+  readyLeaveRoomButton,
   returnToLobbyButton,
   startGameButton,
   roomCopyCodeButton,
@@ -128,6 +130,7 @@ entryStartButton.addEventListener("click", showRoomActions);
 createRoomButton.addEventListener("click", createRoom);
 joinRoomButton.addEventListener("click", joinRoom);
 leaveRoomButton.addEventListener("click", leaveRoom);
+readyLeaveRoomButton.addEventListener("click", leaveRoom);
 returnToLobbyButton.addEventListener("click", returnToLobby);
 startGameButton.addEventListener("click", startGame);
 roomCopyCodeButton.addEventListener("click", copyRoomCode);
