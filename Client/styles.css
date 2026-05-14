@@ -5703,16 +5703,20 @@ body:has(#gamePanel[data-phase="drafting"])::after {
 
 .shell:has(#gamePanel[data-phase="drafting"]) {
   width: min(390px, 100%);
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
   padding: 19px 48px 9px;
   align-content: start;
+  overflow: hidden;
 }
 
 .shell:has(#gamePanel[data-phase="drafting"]) .room-panel {
   position: relative;
-  min-height: calc(100dvh - 28px);
+  height: 100%;
+  min-height: 0;
   gap: 7px;
   padding: 0;
+  overflow: hidden;
 }
 
 .shell:has(#gamePanel[data-phase="drafting"]) .room-topbar {
@@ -5786,9 +5790,11 @@ body:has(#gamePanel[data-phase="drafting"])::after {
 }
 
 .shell:has(#gamePanel[data-phase="drafting"]) .game-panel {
+  min-height: 0;
   gap: 7px;
   padding: 0;
-  overflow: visible;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -5906,9 +5912,11 @@ body:has(#gamePanel[data-phase="drafting"])::after {
 }
 
 .shell:has(#gamePanel[data-phase="drafting"]) #draftPanel {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 7px;
   padding: 0 0 3px;
+  overflow: hidden;
   background: transparent;
 }
 
@@ -5919,9 +5927,13 @@ body:has(#gamePanel[data-phase="drafting"])::after {
 .shell:has(#gamePanel[data-phase="drafting"]) #draftPanel .draft-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  max-height: none;
-  overflow: visible;
-  padding: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 6px 2px 0;
+  scrollbar-gutter: stable;
 }
 
 .shell:has(#gamePanel[data-phase="drafting"]) .draft-card {
@@ -6034,6 +6046,13 @@ body:has(#gamePanel[data-phase="drafting"])::after {
   display: grid;
   gap: 7px;
   padding-top: 4px;
+}
+
+.shell:has(#gamePanel[data-phase="drafting"]) .draft-actions {
+  position: static;
+  z-index: auto;
+  min-height: max-content;
+  padding-top: 0;
 }
 
 .draft-confirm-button {
