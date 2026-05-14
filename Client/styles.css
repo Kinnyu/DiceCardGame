@@ -764,18 +764,42 @@ button.position-card:hover:not(:disabled),
 
 .draft-card.selected::after {
   position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 20px;
-  height: 20px;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
+  box-sizing: border-box;
   border-radius: 999px;
   background: var(--green);
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 900;
-  content: "✓";
+  pointer-events: none;
+  content: "";
+  opacity: 1;
+  transform: none;
+}
+
+.draft-card.selected::before {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 3;
+  width: 7px;
+  height: 12px;
+  box-sizing: border-box;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  background: transparent;
+  box-shadow: none;
+  content: "";
+  opacity: 1;
+  pointer-events: none;
+  transform: rotate(45deg);
+  transform-origin: center;
 }
 
 .draft-card-back {
@@ -2322,7 +2346,7 @@ body {
   height: 24px;
   background: #2a7a53;
   box-shadow: 0 6px 14px rgba(42, 122, 83, 0.28);
-  content: "✓";
+  content: "";
 }
 
 #arrangePanel .slot-grid {
@@ -6027,16 +6051,40 @@ body:has(#gamePanel[data-phase="drafting"])::after {
 }
 
 .shell:has(#gamePanel[data-phase="drafting"]) .draft-card.selected::after {
-  top: -7px;
-  right: -6px;
-  width: 24px;
-  height: 24px;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
   border: 2px solid rgba(255, 249, 231, 0.9);
   background: #4f8a45;
   color: #fffdf4;
   font-size: 0.9rem;
   box-shadow: 0 2px 5px rgba(31, 25, 17, 0.22);
-  content: "✓";
+  content: "";
+  opacity: 1;
+  transform: none;
+}
+
+.shell:has(#gamePanel[data-phase="drafting"]) .draft-card.selected::before {
+  position: absolute;
+  display: block;
+  top: 10px;
+  right: 14px;
+  z-index: 3;
+  width: 7px;
+  height: 12px;
+  box-sizing: border-box;
+  border-style: solid;
+  border-width: 0 2px 2px 0;
+  border-color: #fffdf4;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  content: "";
+  opacity: 1;
+  pointer-events: none;
+  transform: rotate(45deg);
+  transform-origin: center;
 }
 
 .draft-actions {
@@ -7152,7 +7200,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 }
 
 .draft-card.just-selected::after {
-  animation: selected-check-pop 420ms cubic-bezier(0.18, 0.9, 0.24, 1.22);
+  animation: selected-check-pop 420ms cubic-bezier(0.18, 0.9, 0.24, 1.22) both;
 }
 
 .shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active {
@@ -7244,6 +7292,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 
   100% {
     transform: scale(1);
+    opacity: 1;
   }
 }
 
