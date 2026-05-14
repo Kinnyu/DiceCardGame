@@ -7048,16 +7048,16 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   content: "";
 }
 
-.card-art-plus::before,
-.card-art-neutral::before,
-.card-art-special::before {
+.card-art-icon.card-art-plus::before,
+.card-art-icon.card-art-neutral::before,
+.card-art-icon.card-art-special::before {
   width: 54%;
   height: 54%;
   border: 2px solid currentColor;
   transform: rotate(45deg);
 }
 
-.card-art-plus::after {
+.card-art-icon.card-art-plus::after {
   width: 72%;
   height: 72%;
   background:
@@ -7067,8 +7067,8 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   transform: scale(0.7);
 }
 
-.card-art-minus::before,
-.card-art-action::before {
+.card-art-icon.card-art-minus::before,
+.card-art-icon.card-art-action::before {
   width: 78%;
   height: 2px;
   border-radius: 999px;
@@ -7076,8 +7076,8 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   transform: rotate(-36deg);
 }
 
-.card-art-minus::after,
-.card-art-action::after {
+.card-art-icon.card-art-minus::after,
+.card-art-icon.card-art-action::after {
   width: 78%;
   height: 2px;
   border-radius: 999px;
@@ -7085,7 +7085,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   transform: rotate(36deg);
 }
 
-.card-art-reverse::before {
+.card-art-icon.card-art-reverse::before {
   width: 74%;
   height: 74%;
   border: 3px solid currentColor;
@@ -7093,7 +7093,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   border-radius: 999px;
 }
 
-.card-art-reverse::after {
+.card-art-icon.card-art-reverse::after {
   right: 2px;
   top: 7px;
   border-top: 6px solid transparent;
@@ -7102,7 +7102,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   transform: rotate(28deg);
 }
 
-.card-art-defense::before {
+.card-art-icon.card-art-defense::before {
   width: 68%;
   height: 78%;
   border: 2px solid currentColor;
@@ -7110,13 +7110,13 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   clip-path: polygon(50% 0, 88% 14%, 78% 72%, 50% 100%, 22% 72%, 12% 14%);
 }
 
-.card-art-defense::after {
+.card-art-icon.card-art-defense::after {
   width: 2px;
   height: 50%;
   background: currentColor;
 }
 
-.card-art-multiply::before {
+.card-art-icon.card-art-multiply::before {
   width: 60%;
   height: 72%;
   border: 2px solid currentColor;
@@ -7124,7 +7124,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   transform: rotate(-12deg) translateX(-4px);
 }
 
-.card-art-multiply::after {
+.card-art-icon.card-art-multiply::after {
   width: 60%;
   height: 72%;
   border: 2px solid currentColor;
@@ -7135,7 +7135,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   transform: rotate(10deg) translateX(5px);
 }
 
-.card-art-finale::before {
+.card-art-icon.card-art-finale::before {
   width: 78%;
   height: 52%;
   border: 2px solid currentColor;
@@ -7143,7 +7143,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   clip-path: polygon(0 100%, 0 28%, 24% 58%, 50% 8%, 76% 58%, 100% 28%, 100% 100%);
 }
 
-.card-art-finale::after {
+.card-art-icon.card-art-finale::after {
   bottom: 3px;
   width: 68%;
   height: 2px;
@@ -7151,7 +7151,7 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   background: currentColor;
 }
 
-.card-art-empty::before {
+.card-art-icon.card-art-empty::before {
   width: 54%;
   height: 54%;
   border: 1px dashed rgba(49, 93, 85, 0.46);
@@ -7212,28 +7212,11 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 }
 
 .large-card-motion {
-  position: absolute;
-  right: 14px;
-  bottom: 6px;
-  width: 46px;
-  height: 34px;
-  overflow: hidden;
-  border: 3px solid var(--card-green-ink);
-  border-left-color: transparent;
-  border-bottom-color: transparent;
-  border-radius: 999px;
-  opacity: 0.62;
+  display: none;
 }
 
 .large-card-motion::after {
-  position: absolute;
-  right: 1px;
-  top: 15px;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 8px solid var(--card-green-ink);
-  content: "";
-  transform: rotate(32deg);
+  content: none;
 }
 
 .large-card-value {
