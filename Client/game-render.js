@@ -788,26 +788,30 @@ function renderBoardCard(card, position, options = {}) {
   label.textContent = String(position);
   item.append(label);
 
-  if (card?.revealed) {
+  const isUsed = Boolean(card?.used);
+
+  if (card?.revealed && !isUsed) {
     const icon = document.createElement("span");
     icon.className = `card-art-icon ${getCardVisualClass(card)}`;
     icon.setAttribute("aria-hidden", "true");
     item.append(icon);
   }
 
-  const title = document.createElement("strong");
-  title.textContent = canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardTitle(card);
-  item.append(title);
+  if (!isUsed) {
+    const title = document.createElement("strong");
+    title.textContent = canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardTitle(card);
+    item.append(title);
 
-  const detail = document.createElement("span");
-  detail.className = "card-effect";
-  detail.textContent = canClick ? "指定位置" : getBoardCardDetail(card, isSelf);
-  item.append(detail);
+    const detail = document.createElement("span");
+    detail.className = "card-effect";
+    detail.textContent = canClick ? "指定位置" : getBoardCardDetail(card, isSelf);
+    item.append(detail);
+  }
 
-  if (card?.used) {
+  if (isUsed) {
     const used = document.createElement("span");
     used.className = "used-marker";
-    used.textContent = "已用";
+    used.textContent = "已使用";
     item.append(used);
   }
 
