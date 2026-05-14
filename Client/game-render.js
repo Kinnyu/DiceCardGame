@@ -241,19 +241,28 @@ export function renderArrangePanel(self, context) {
   const alreadyArranged = arrangedCards.length >= handSize && hand.length === 0;
 
   if (alreadyArranged) {
+    elements.arrangePanel.dataset.arrangeState = "submitted";
+    elements.arrangePanel.dataset.arrangedCount = String(handSize);
     elements.arrangeHint.textContent = "你已送出牌序，等待其他玩家。";
     elements.turnIndicator.textContent = `${handSize}/${handSize} 已排`;
     elements.submitArrangeButton.disabled = true;
-    elements.submitArrangeButton.textContent = "已送出排列";
+    elements.submitArrangeButton.hidden = false;
+    elements.submitArrangeButton.textContent = "已送出排列，等待中";
     elements.resetArrangeButton.disabled = true;
+    elements.resetArrangeButton.hidden = true;
     elements.arrangeSlots.replaceChildren(...renderArrangedPreview(arrangedCards, handSize));
     elements.handCards.replaceChildren(...renderArrangeOrderSlots(arrangedCards, handSize));
     return;
   }
 
+  elements.arrangePanel.dataset.arrangeState = hand.length ? "editing" : "syncing";
+  elements.submitArrangeButton.hidden = false;
+  elements.resetArrangeButton.hidden = false;
+
   if (!hand.length) {
     elements.arrangeHint.textContent = "正在等待手牌同步。";
     elements.turnIndicator.textContent = `0/${handSize} 已排`;
+    elements.arrangePanel.dataset.arrangedCount = "0";
     elements.submitArrangeButton.disabled = true;
     elements.submitArrangeButton.textContent = "送出排列";
     elements.resetArrangeButton.disabled = true;

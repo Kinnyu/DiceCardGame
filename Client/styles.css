@@ -6501,6 +6501,110 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   content: "↻";
 }
 
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  min-height: 0;
+  max-height: calc(100dvh - 116px);
+  overflow: hidden;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .section-heading p {
+  width: 100%;
+  border-color: rgba(49, 93, 85, 0.34);
+  color: #24483f;
+  background: rgba(237, 247, 238, 0.92);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .section-heading p::before {
+  content: "✓";
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .slot-grid {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 1px 2px 5px;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .position-card {
+  min-height: 59px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 7px 8px;
+  border-color: rgba(57, 91, 64, 0.46);
+  background:
+    linear-gradient(var(--card-gold-line) 0 0) left 5px top 5px / 13px 1px no-repeat,
+    linear-gradient(var(--card-gold-line) 0 0) left 5px top 5px / 1px 13px no-repeat,
+    linear-gradient(var(--card-gold-line) 0 0) right 5px bottom 5px / 13px 1px no-repeat,
+    linear-gradient(var(--card-gold-line) 0 0) right 5px bottom 5px / 1px 13px no-repeat,
+    linear-gradient(180deg, rgba(255, 253, 244, 0.98), rgba(243, 249, 240, 0.96));
+  box-shadow: 0 4px 8px rgba(31, 25, 17, 0.1);
+  pointer-events: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .position-card .card-position {
+  grid-row: 1 / span 2;
+  color: #315d55;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .position-card strong,
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .position-card .card-effect {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .position-card strong {
+  color: #253326;
+  font-size: 0.88rem;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .position-card .card-effect {
+  color: #315d55;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .hand-grid {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid rgba(128, 104, 61, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 249, 231, 0.84);
+  box-shadow: 0 -4px 10px rgba(31, 25, 17, 0.08);
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] .arrange-mini-slot {
+  min-height: 42px;
+  padding-block: 3px;
+  background: rgba(255, 253, 244, 0.9);
+  pointer-events: none;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] #submitArrangeButton {
+  min-height: 36px;
+  border: 1px solid rgba(49, 93, 85, 0.32);
+  color: #24483f;
+  background: rgba(237, 247, 238, 0.92);
+  box-shadow: none;
+  opacity: 1;
+  cursor: default;
+}
+
+.shell:has(#gamePanel[data-phase="arranging"]) #arrangePanel[data-arrange-state="submitted"] #submitArrangeButton::before {
+  content: "✓";
+}
+
 @media (max-width: 380px) {
   .shell:has(#gamePanel[data-phase="arranging"]) {
     padding-inline: 28px;

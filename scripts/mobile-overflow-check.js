@@ -5,9 +5,9 @@ import path from "node:path";
 
 const baseUrl = "http://localhost:3000";
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const cdpPort = 9333;
+const cdpPort = 9333 + Math.floor(Math.random() * 400);
 const outDir = path.resolve("mobile-check-artifacts");
-const userDataDir = path.resolve(".tmp-mobile-chrome");
+const userDataDir = path.resolve(".tmp-mobile-chrome", `${Date.now()}-${process.pid}`);
 
 async function main() {
   await waitForServer();
@@ -53,6 +53,7 @@ async function main() {
     }));
     results.push(await scenario("drafting", viewport, "draft-one", `${baseUrl}/#room=${rooms.draftCode}`));
     results.push(await scenario("arranging", viewport, "arr-one", `${baseUrl}/#room=${rooms.arrangeCode}`));
+    results.push(await scenario("arranging-submitted", viewport, "submitted-one", `${baseUrl}/#room=${rooms.submittedArrangeCode}`));
     results.push(await scenario("playing-2p", viewport, rooms.play2.turnPlayer, `${baseUrl}/#room=${rooms.play2.code}`));
     results.push(await scenario("playing-3p", viewport, rooms.play3.turnPlayer, `${baseUrl}/#room=${rooms.play3.code}`));
     results.push(await scenario("playing-4p", viewport, rooms.play4.turnPlayer, `${baseUrl}/#room=${rooms.play4.code}`));
@@ -79,13 +80,8 @@ async function main() {
   console.log(JSON.stringify(summarize(results), null, 2));
   assertClean(results);
   } finally {
-    chrome.kill();
-    await onceExit(chrome);
-    try {
-      await fs.rm(userDataDir, { recursive: true, force: true });
-    } catch (error) {
-      console.warn(`Could not remove temporary Chrome profile: ${error.message}`);
-    }
+    await shutdownChrome(chrome);
+    await removeDirWithRetries(userDataDir);
   }
 }
 
@@ -102,7 +98,7 @@ async function scenario(label, viewport, playerId, url, beforeAudit = null) {
     await screenshot(cdp, `${viewport.name || `${viewport.width}x${viewport.height}`}-${label}`);
     return { label, viewport, audit };
   } finally {
-    close();
+    await close();
   }
 }
 
@@ -135,11 +131,18 @@ async function prepareRooms() {
   await draftSix(arrangeCode, "arr-one");
   await draftSix(arrangeCode, "arr-two");
 
+  const submittedArrangeCode = (await post("/api/rooms", { playerId: "submitted-one", name: "SubmittedLongNameOne" })).room.code;
+  await post(`/api/rooms/${submittedArrangeCode}/join`, { playerId: "submitted-two", name: "SubmittedLongNameTwo" });
+  await post(`/api/rooms/${submittedArrangeCode}/start`, { playerId: "submitted-one" });
+  await draftSix(submittedArrangeCode, "submitted-one");
+  await draftSix(submittedArrangeCode, "submitted-two");
+  await arrange(submittedArrangeCode, "submitted-one");
+
   const play2 = await preparePlayingRoom("play2", ["PlayLongNameOne", "PlayLongNameTwo"]);
   const play3 = await preparePlayingRoom("play3", ["PlayLongNameOne", "PlayLongNameTwo", "PlayLongNameThree"]);
   const play4 = await preparePlayingRoom("play4", ["PlayLongNameOne", "PlayLongNameTwo", "PlayLongNameThree", "PlayLongNameFour"]);
 
-  return { waitingCode, readyCode, draftCode, arrangeCode, play2, play3, play4 };
+  return { waitingCode, readyCode, draftCode, arrangeCode, submittedArrangeCode, play2, play3, play4 };
 }
 
 async function preparePlayingRoom(prefix, names) {
@@ -205,6 +208,7 @@ class CdpSession {
     this.id = 0;
     this.socket = socket;
     this.pending = new Map();
+    this.closed = false;
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (!message.id || !this.pending.has(message.id)) {
@@ -215,27 +219,40 @@ class CdpSession {
       }
       const pending = this.pending.get(message.id);
       this.pending.delete(message.id);
+      clearTimeout(pending.timer);
       if (message.error) {
         pending.reject(new Error(JSON.stringify(message.error)));
       } else {
         pending.resolve(message.result);
       }
     };
+    socket.onclose = () => {
+      this.closed = true;
+      for (const pending of this.pending.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error("CDP socket closed"));
+      }
+      this.pending.clear();
+    };
     this.events = [];
   }
 
   send(method, params = {}) {
+    if (this.closed) {
+      return Promise.reject(new Error(`CDP socket closed before ${method}`));
+    }
+
     const id = ++this.id;
     this.socket.send(JSON.stringify({ id, method, params }));
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (!this.pending.has(id)) {
           return;
         }
         this.pending.delete(id);
         reject(new Error(`CDP timeout: ${method}`));
       }, 10000);
+      this.pending.set(id, { resolve, reject, timer });
     });
   }
 }
@@ -261,7 +278,19 @@ async function newPage(playerId, viewport) {
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `sessionStorage.setItem('dice-card-player-id', ${JSON.stringify(playerId)}); localStorage.setItem('dice-card-player-name', ${JSON.stringify(playerId)});`
   });
-  return { cdp, close: () => socket.close() };
+  return {
+    cdp,
+    close: async () => {
+      const socketClosed = waitForSocketClose(socket, 2500);
+      try {
+        await fetch(`http://127.0.0.1:${cdpPort}/json/close/${target.id}`);
+      } catch {
+        // Best-effort cleanup; the browser process is torn down after the run.
+      }
+      closeSocket(socket);
+      await socketClosed;
+    }
+  };
 }
 
 async function navigate(cdp, url) {
@@ -381,13 +410,130 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function onceExit(childProcess) {
+async function shutdownChrome(childProcess) {
   if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
+    return;
+  }
+
+  await requestBrowserClose();
+  if (await waitForExit(childProcess, 3000)) {
+    return;
+  }
+
+  childProcess.kill();
+  if (await waitForExit(childProcess, 5000)) {
+    return;
+  }
+
+  if (process.platform === "win32" && childProcess.pid) {
+    await forceKillWindowsProcess(childProcess.pid);
+  } else {
+    childProcess.kill("SIGKILL");
+  }
+  await waitForExit(childProcess, 3000);
+}
+
+async function requestBrowserClose() {
+  let socket = null;
+  try {
+    const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`);
+    const version = await response.json();
+    if (!version.webSocketDebuggerUrl) {
+      return;
+    }
+
+    socket = new WebSocket(version.webSocketDebuggerUrl);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Browser close socket timeout")), 2000);
+      socket.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      socket.onerror = (error) => {
+        clearTimeout(timer);
+        reject(error);
+      };
+    });
+
+    const closed = waitForSocketClose(socket, 2500);
+    socket.send(JSON.stringify({ id: 1, method: "Browser.close" }));
+    await closed;
+  } catch {
+    // The browser may already be gone; process kill below is the fallback.
+  } finally {
+    if (socket) {
+      closeSocket(socket);
+    }
+  }
+}
+
+function waitForExit(childProcess, timeoutMs) {
+  if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      childProcess.off("exit", onExit);
+      resolve(false);
+    }, timeoutMs);
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    childProcess.once("exit", onExit);
+  });
+}
+
+function forceKillWindowsProcess(pid) {
+  return new Promise((resolve) => {
+    const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
+    const timer = setTimeout(resolve, 3000);
+    killer.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+async function removeDirWithRetries(directory, attempts = 6) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await fs.rm(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      lastError = error;
+      await delay(150 * attempt);
+    }
+  }
+
+  console.warn(`Could not remove temporary Chrome profile after ${attempts} attempts: ${lastError.message}`);
+}
+
+function closeSocket(socket) {
+  if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
+    return;
+  }
+
+  try {
+    socket.close();
+  } catch {
+    // The target may already be closed by Chrome.
+  }
+}
+
+function waitForSocketClose(socket, timeoutMs) {
+  if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
     return Promise.resolve();
   }
 
   return new Promise((resolve) => {
-    childProcess.once("exit", resolve);
+    const timer = setTimeout(resolve, timeoutMs);
+    socket.addEventListener("close", () => {
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
   });
 }
 
@@ -459,6 +605,7 @@ const auditExpression = `(() => {
 
 try {
   await main();
+  process.exit(0);
 } catch (error) {
   console.error(error);
   process.exit(1);
