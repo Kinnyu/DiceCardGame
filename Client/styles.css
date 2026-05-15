@@ -6954,6 +6954,12 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   cursor: pointer;
 }
 
+@media (max-width: 520px) {
+  .card-modal-backdrop {
+    backdrop-filter: blur(2px);
+  }
+}
+
 @media (max-width: 380px) {
   .card-modal-backdrop {
     padding: 8px;
@@ -7359,9 +7365,6 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 }
 
 /* P2 interaction polish */
-.draft-card,
-.arrange-order-card,
-.table-card,
 .central-die,
 .card-modal-backdrop,
 .settings-backdrop,

@@ -113,6 +113,7 @@ let roomPoll = null;
 let activePollingCode = null;
 let pollAbortController = null;
 let pollInFlight = false;
+let renderedRoomSignature = "";
 let restoreRequestId = 0;
 let latestRoomRequestId = 0;
 let appliedRoomRequestId = 0;
@@ -310,7 +311,6 @@ async function startGame() {
     const payload = await startGameRequest(code, playerId);
     if (currentRoom?.code === code) {
       renderRoom(payload.room, requestId);
-      await pollRoomOnce(code, { force: true });
     }
   } catch (error) {
     roomMessage.textContent = error.message;
@@ -585,6 +585,7 @@ function showRoomActions() {
 }
 
 function renderRoom(room, requestId = nextRoomRequestId()) {
+  const roomSignature = getRoomSignature(room);
   const rendered = renderRoomView(room, {
     elements,
     playerId,
@@ -626,6 +627,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
 
   appliedRoomRequestId = requestId;
   currentRoom = room;
+  renderedRoomSignature = roomSignature;
 }
 
 function renderOperationRoom(room) {
@@ -635,13 +637,19 @@ function renderOperationRoom(room) {
 function startRoomPolling(code) {
   stopRoomPolling();
   activePollingCode = code;
-  pollRoomOnce(code, { force: true });
   roomPoll = window.setInterval(() => pollRoomOnce(code), pollingMs);
 }
 
 async function pollRoomOnce(code, { force = false } = {}) {
-  if ((!force && pollInFlight) || activePollingCode !== code) {
+  if (activePollingCode !== code) {
     return;
+  }
+
+  if (pollInFlight) {
+    if (!force) {
+      return;
+    }
+    pollAbortController?.abort();
   }
 
   pollInFlight = true;
@@ -654,6 +662,14 @@ async function pollRoomOnce(code, { force = false } = {}) {
       signal: controller.signal
     });
     if (controller.signal.aborted || activePollingCode !== code) {
+      return;
+    }
+
+    const roomSignature = getRoomSignature(payload.room);
+    if (roomSignature && roomSignature === renderedRoomSignature) {
+      if (roomMessage.textContent === "同步中斷，正在重試。") {
+        roomMessage.textContent = "";
+      }
       return;
     }
 
@@ -692,6 +708,14 @@ function stopRoomPolling() {
     pollAbortController = null;
   }
   pollInFlight = false;
+}
+
+function getRoomSignature(room) {
+  try {
+    return JSON.stringify(room);
+  } catch {
+    return "";
+  }
 }
 
 async function restoreFromHash() {

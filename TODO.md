@@ -338,10 +338,10 @@
 ### 11. 前端重繪與 polling 造成的整體操作延遲盤點
 負責：Client Render Performance Agent
 
-- [ ] 針對整體操作卡頓，盤點是否由頻繁 `replaceChildren(...)`、整個遊戲畫面重 render、polling 回來後重建 DOM、或動畫重繪造成。
-- [ ] 建議先閱讀 `Client/app.js` 的 `startRoomPolling(...)`、`pollRoomOnce(...)`、`renderCurrentRoom(...)`、`setPending(...)`。
-- [ ] 建議先閱讀 `Client/game-render.js` 的 `renderGame(...)` 以及各階段 `replaceChildren(...)` 使用位置。
-- [ ] 建議先閱讀 `Client/styles.css` 中可能造成大量 repaint 的 `backdrop-filter`、大型 `box-shadow`、全畫面動畫、`:has(...)` phase selector。
-- [ ] 檢查 polling 間隔、force polling、API 操作後是否重複 fetch 或重複 render，避免單次操作造成多次畫面重建。
-- [ ] 評估是否可保留局部 DOM、減少整棵區塊重建，或至少避免在 pending 狀態反覆重建正在互動的卡片/按鈕。
-- [ ] 驗收標準：選牌與回合操作時沒有明顯整頁頓一下、按鈕延遲變化、卡片重排跳動；`npm run check` 通過。
+- [x] 針對整體操作卡頓，盤點是否由頻繁 `replaceChildren(...)`、整個遊戲畫面重 render、polling 回來後重建 DOM、或動畫重繪造成。
+- [x] 建議先閱讀 `Client/app.js` 的 `startRoomPolling(...)`、`pollRoomOnce(...)`、`renderCurrentRoom(...)`、`setPending(...)`。
+- [x] 建議先閱讀 `Client/game-render.js` 的 `renderGame(...)` 以及各階段 `replaceChildren(...)` 使用位置。
+- [x] 建議先閱讀 `Client/styles.css` 中可能造成大量 repaint 的 `backdrop-filter`、大型 `box-shadow`、全畫面動畫、`:has(...)` phase selector。
+- [x] 檢查 polling 間隔、force polling、API 操作後是否重複 fetch 或重複 render，避免單次操作造成多次畫面重建。
+- [x] 評估是否可保留局部 DOM、減少整棵區塊重建，或至少避免在 pending 狀態反覆重建正在互動的卡片/按鈕。
+- [x] 驗收標準：選牌與回合操作時沒有明顯整頁頓一下、按鈕延遲變化、卡片重排跳動；`npm run check` 通過。
