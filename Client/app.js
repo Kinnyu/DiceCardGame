@@ -106,7 +106,7 @@ const playerId = getOrCreatePlayerId();
 const pollingMs = 1200;
 const handSize = 6;
 const copyFeedbackMs = 1800;
-const rollMinimumAnimationMs = 320;
+const rollMinimumAnimationMs = 180;
 
 let currentRoom = null;
 let roomPoll = null;
@@ -133,6 +133,7 @@ let rollAnimationStartedAt = 0;
 let revealedCardModal = null;
 let recentlyRevealedCardKey = "";
 let recentlyRevealedCardTimer = null;
+let revealPendingCardKey = "";
 let recentDraftCardId = "";
 let recentDraftCardTimer = null;
 const draftSelectionPendingIds = new Set();
@@ -498,7 +499,6 @@ async function rollTurn() {
   }
 
   const code = currentRoom.code;
-  const requestId = nextRoomRequestId();
   roomMessage.textContent = "";
   setBusy("roll", true);
   startRollAnimation();
@@ -519,7 +519,7 @@ async function rollTurn() {
     }
 
     finishRollAnimation(payload.turn?.diceResult);
-    renderRoom(payload.room, requestId);
+    renderOperationRoom(payload.room);
     if (payload.turn) {
       const playerName = getPlayerNameById(payload.turn.playerId, payload.room);
       roomMessage.textContent = `${playerName} 擲出 ${payload.turn.diceResult}，請點擊位置 ${payload.turn.position} 的牌。`;
@@ -602,6 +602,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     recentDraftCardId,
     draftSelectionPendingIds,
     recentlyRevealedCardKey,
+    revealPendingCardKey,
     cardUsePending,
     acknowledgedRevealedCards,
     currentRoom: room,
@@ -625,6 +626,10 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
 
   appliedRoomRequestId = requestId;
   currentRoom = room;
+}
+
+function renderOperationRoom(room) {
+  renderRoom(room, nextRoomRequestId());
 }
 
 function startRoomPolling(code) {
@@ -912,7 +917,7 @@ async function useRevealedCard() {
 
   const code = currentRoom?.code;
   const position = revealedCardModal.position;
-  const requestId = nextRoomRequestId();
+  const modalKey = revealedCardModal.key;
   if (!code || !position) {
     return;
   }
@@ -924,13 +929,15 @@ async function useRevealedCard() {
 
   try {
     const payload = await useCardRequest(code, playerId, position);
-    if (revealedCardModal) {
-      acknowledgedRevealedCards.add(revealedCardModal.key);
+    if (modalKey) {
+      acknowledgedRevealedCards.add(modalKey);
     }
-    revealedCardModal = null;
+    if (!revealedCardModal || revealedCardModal.key === modalKey) {
+      revealedCardModal = null;
+    }
     cardUsePending = false;
     roomMessage.textContent = "卡牌效果已套用。";
-    renderRoom(payload.room, requestId);
+    renderOperationRoom(payload.room);
   } catch (error) {
     cardUsePending = false;
     roomMessage.textContent = error.message;
@@ -941,10 +948,6 @@ async function useRevealedCard() {
 }
 
 function closeRevealedCardModal() {
-  if (cardUsePending) {
-    return;
-  }
-
   revealedCardModal = null;
   if (currentRoom) {
     renderRoom(currentRoom, appliedRoomRequestId);
@@ -954,6 +957,7 @@ function closeRevealedCardModal() {
 function resetRevealedCardUi() {
   revealedCardModal = null;
   cardUsePending = false;
+  revealPendingCardKey = "";
   clearRecentlyRevealedCard();
 }
 
@@ -973,20 +977,36 @@ async function handleTargetCardClick(position) {
     return;
   }
 
+  if (revealPendingCardKey === modal.key) {
+    return;
+  }
+
   if (!modal.revealed) {
     const code = currentRoom?.code;
-    const requestId = nextRoomRequestId();
-    setBusy("reveal", true);
+    revealPendingCardKey = modal.key;
+    roomMessage.textContent = "";
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+    }
+
     try {
       const payload = await revealCardRequest(code, playerId, position);
+      if (currentRoom?.code !== code) {
+        revealPendingCardKey = "";
+        return;
+      }
+
+      revealPendingCardKey = "";
       revealedCardModal = getTargetModal(payload.room?.game, position);
       markRecentlyRevealedCard(revealedCardModal?.key);
       roomMessage.textContent = "";
-      renderRoom(payload.room, requestId);
+      renderOperationRoom(payload.room);
     } catch (error) {
+      revealPendingCardKey = "";
       roomMessage.textContent = error.message;
-    } finally {
-      setBusy("reveal", false);
+      if (currentRoom) {
+        renderRoom(currentRoom, appliedRoomRequestId);
+      }
     }
     return;
   }
@@ -999,7 +1019,7 @@ async function handleTargetCardClick(position) {
 }
 
 function openCardDetail(ownerPlayerId, position) {
-  if (pendingAction || cardUsePending) {
+  if (pendingAction) {
     return;
   }
 

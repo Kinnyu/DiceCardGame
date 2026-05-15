@@ -326,14 +326,14 @@
 ### 10. 遊玩階段按鈕與卡牌操作 pending 體感卡頓
 負責：Turn Interaction Responsiveness Agent
 
-- [ ] 參考使用者回報：遊玩階段按鈕處理也有卡頓感，包含擲骰、翻牌、使用效果、關閉/開啟卡牌詳情等操作。
-- [ ] 建議先閱讀 `Client/app.js` 的 `rollTurn(...)`、`handleTargetCardClick(...)`、`useRevealedCard(...)`、`cardUsePending`、`pendingAction`。
-- [ ] 建議先閱讀 `Client/game-render.js` 的 `renderTurnPhase(...)`、`getRollActionState(...)`、`renderBoardCard(...)`、`renderRevealedCardModal(...)`。
-- [ ] 建議先閱讀 `Client/styles.css` 中 `.central-roll-button`、`.table-card.target-card`、`.card-modal`、`.card-modal-backdrop`、操作動畫 keyframes。
-- [ ] 檢查 pending / disabled 狀態是否太廣，是否把不相關操作一起鎖住，導致玩家感覺 UI 沒反應。
-- [ ] 檢查擲骰、翻牌、使用效果是否需要最短動畫時間或人工等待；若有，確認是否可縮短或改成不阻塞下一步。
-- [ ] 補強即時回饋：按下後立刻顯示按鈕狀態、目標卡片狀態、loading 文字或局部狀態，不要等下一次 polling 才更新。
-- [ ] 驗收標準：回合中每個主要操作點擊後 100ms 內有可見回饋，且不相關按鈕/卡牌不會被過度 disabled。
+- [x] 參考使用者回報：遊玩階段按鈕處理也有卡頓感，包含擲骰、翻牌、使用效果、關閉/開啟卡牌詳情等操作。
+- [x] 建議先閱讀 `Client/app.js` 的 `rollTurn(...)`、`handleTargetCardClick(...)`、`useRevealedCard(...)`、`cardUsePending`、`pendingAction`。
+- [x] 建議先閱讀 `Client/game-render.js` 的 `renderTurnPhase(...)`、`getRollActionState(...)`、`renderBoardCard(...)`、`renderRevealedCardModal(...)`。
+- [x] 建議先閱讀 `Client/styles.css` 中 `.central-roll-button`、`.table-card.target-card`、`.card-modal`、`.card-modal-backdrop`、操作動畫 keyframes。
+- [x] 檢查 pending / disabled 狀態是否太廣，是否把不相關操作一起鎖住，導致玩家感覺 UI 沒反應。
+- [x] 檢查擲骰、翻牌、使用效果是否需要最短動畫時間或人工等待；若有，確認是否可縮短或改成不阻塞下一步。
+- [x] 補強即時回饋：按下後立刻顯示按鈕狀態、目標卡片狀態、loading 文字或局部狀態，不要等下一次 polling 才更新。
+- [x] 驗收標準：回合中每個主要操作點擊後 100ms 內有可見回饋，且不相關按鈕/卡牌不會被過度 disabled。
 
 ### 11. 前端重繪與 polling 造成的整體操作延遲盤點
 負責：Client Render Performance Agent

@@ -537,7 +537,7 @@ function renderTableCenter(game, room, context, targetHint, actionState) {
 
   if (targetHint?.needsAction) {
     const target = document.createElement("p");
-    target.className = `target-card-hint${targetHint.canClick ? " actionable" : ""}`;
+    target.className = `target-card-hint${targetHint.canClick ? " actionable" : ""}${targetHint.isRevealPending ? " pending" : ""}`;
     target.textContent = getTargetHintText(targetHint);
     center.append(target);
   }
@@ -568,6 +568,7 @@ function getTargetHint(game, context) {
   const isOpen = Boolean(targetCard?.used || targetCard?.revealed);
   const cardKey = getRevealedCardKey(context.currentRoom?.code, targetPlayerId, position, targetCard, lastRoll);
   const isAcknowledged = Boolean(cardKey && context.acknowledgedRevealedCards?.has(cardKey));
+  const isRevealPending = Boolean(cardKey && context.revealPendingCardKey === cardKey);
   const needsAction = ["pending", "revealed"].includes(lastRoll?.status) && !isUsed && !isAcknowledged;
   const canClick =
     isViewerTarget &&
@@ -575,13 +576,15 @@ function getTargetHint(game, context) {
     needsAction &&
     Boolean(targetCard && !targetCard.used) &&
     !targetPlayer?.eliminated &&
-    !context.pendingAction;
+    !context.pendingAction &&
+    !isRevealPending;
 
   return {
     cardKey,
     canClick,
     isAcknowledged,
     isOpen,
+    isRevealPending,
     isUsed,
     needsAction,
     isViewerTarget,
@@ -625,6 +628,9 @@ function getTurnActionState(game, self, targetHint, context) {
 
   if (context.rollAnimation?.active) {
     return { disabled: true, label: "擲骰中...", message: "骰子跳動中，等待結果。" };
+  }
+  if (targetHint?.isRevealPending) {
+    return { disabled: true, label: "翻牌中...", message: "翻牌請求已送出，等待結果。" };
   }
   if (context.pendingAction || context.cardUsePending) {
     const label = targetHint?.isViewerTarget && targetHint.needsAction ? "處理中..." : "擲骰中...";
@@ -752,6 +758,7 @@ function renderSeatCards(player, handSize, isSelf, targetHint, context) {
       isSelf,
       isTarget,
       isRecentlyRevealed: Boolean(isTarget && targetHint?.cardKey && targetHint.cardKey === context.recentlyRevealedCardKey),
+      isRevealPending: Boolean(isTarget && targetHint?.isRevealPending),
       ownerPlayerId,
       targetHint: isTarget ? targetHint : null,
       onClick: context.callbacks.handleTargetCardClick,
@@ -767,6 +774,7 @@ function renderBoardCard(card, position, options = {}) {
     isSelf = false,
     isTarget = false,
     isRecentlyRevealed = false,
+    isRevealPending = false,
     ownerPlayerId = "",
     targetHint = null,
     onClick,
@@ -774,9 +782,10 @@ function renderBoardCard(card, position, options = {}) {
   } = options;
   const interactive = canClick || canOpenDetails;
   const item = document.createElement(interactive ? "button" : "div");
-  item.className = `position-card board-card table-card${card?.revealed ? ` revealed ${getCardVisualClass(card)}` : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}${isRecentlyRevealed ? " just-revealed" : ""}`;
+  item.className = `position-card board-card table-card${card?.revealed ? ` revealed ${getCardVisualClass(card)}` : ""}${card?.used ? " used" : ""}${!card ? " missing" : ""}${isTarget ? " target-card" : ""}${canClick ? " clickable" : ""}${isRecentlyRevealed ? " just-revealed" : ""}${isRevealPending ? " reveal-pending" : ""}`;
   if (interactive) {
     item.type = "button";
+    item.disabled = Boolean(isRevealPending);
     item.setAttribute("aria-label", canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardDetailLabel(card, position));
     item.addEventListener("click", () => {
       if (canClick) {
@@ -803,7 +812,7 @@ function renderBoardCard(card, position, options = {}) {
 
   if (!isUsed) {
     const title = document.createElement("strong");
-    title.textContent = canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardTitle(card);
+    title.textContent = isRevealPending ? "翻牌中..." : canClick ? getBoardCardActionLabel(position, targetHint) : getBoardCardTitle(card);
     item.append(title);
 
     const detail = document.createElement("span");
@@ -897,7 +906,6 @@ function renderRevealedCardModal(game, context) {
   closeButton.className = "card-modal-close";
   closeButton.type = "button";
   closeButton.textContent = "×";
-  closeButton.disabled = Boolean(context.cardUsePending);
   closeButton.addEventListener("click", context.callbacks.closeRevealedCardModal);
   dialog.append(closeButton);
 
@@ -977,7 +985,6 @@ function renderRevealedCardModal(game, context) {
   closeAction.className = "secondary-button card-cancel-button";
   closeAction.type = "button";
   closeAction.textContent = "關閉";
-  closeAction.disabled = Boolean(context.cardUsePending);
   if (!canUseEffect) {
     closeAction.classList.add("full-width");
   }

@@ -1201,6 +1201,33 @@ button.position-card:hover:not(:disabled),
   background: var(--accent-soft);
 }
 
+.table-card.target-card.reveal-pending {
+  border-color: rgba(73, 139, 82, 0.9);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 42%),
+    var(--accent-soft);
+  box-shadow:
+    0 0 0 3px rgba(73, 139, 82, 0.18),
+    0 10px 20px rgba(31, 38, 45, 0.08);
+  cursor: progress;
+}
+
+.table-card.target-card.reveal-pending::after {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(73, 139, 82, 0.34);
+  border-radius: 6px;
+  content: "";
+  pointer-events: none;
+  animation: target-card-pending 760ms ease-in-out infinite alternate;
+}
+
+.target-card-hint.pending {
+  border-color: rgba(73, 139, 82, 0.54);
+  background: rgba(73, 139, 82, 0.12);
+  color: #36583b;
+}
+
 .used-marker {
   position: absolute;
   right: 4px;
@@ -1481,6 +1508,18 @@ button.position-card:hover:not(:disabled),
       0 0 0 3px rgba(232, 207, 146, 0.32),
       0 0 0 8px rgba(232, 207, 146, 0.16),
       0 16px 30px rgba(107, 80, 20, 0.18);
+  }
+}
+
+@keyframes target-card-pending {
+  from {
+    opacity: 0.45;
+    transform: scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -5486,6 +5525,18 @@ body:has(#gamePanel[data-phase="playing"])::before {
 .shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.clickable strong,
 .shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.clickable .card-effect {
   display: none;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.reveal-pending {
+  background:
+    linear-gradient(45deg, transparent 0 38%, rgba(137, 180, 126, 0.24) 38% 40%, transparent 40% 60%, rgba(137, 180, 126, 0.24) 60% 62%, transparent 62%),
+    radial-gradient(circle at 50% 50%, rgba(223, 241, 211, 0.18) 0 30%, transparent 31%),
+    linear-gradient(180deg, #235b45, #123d35);
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.reveal-pending strong,
+.shell:has(#gamePanel[data-phase="playing"]) .self-seat .table-card.target-card.reveal-pending .card-effect {
+  color: #ffffff;
 }
 
 .shell:has(#gamePanel[data-phase="playing"]) .self-seat .seat-card-row {
