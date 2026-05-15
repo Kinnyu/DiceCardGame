@@ -135,6 +135,8 @@ let recentlyRevealedCardKey = "";
 let recentlyRevealedCardTimer = null;
 let recentDraftCardId = "";
 let recentDraftCardTimer = null;
+const draftSelectionPendingIds = new Set();
+let draftSelectionQueue = Promise.resolve();
 let cardUsePending = false;
 let copyFeedbackResetTimer = null;
 let settingsCloseTimer = null;
@@ -410,27 +412,77 @@ async function arrangeCards() {
   }
 }
 
+function canQueueDraftSelection(cardInstanceId) {
+  if (!currentRoom || pendingAction || !cardInstanceId || draftSelectionPendingIds.has(cardInstanceId)) {
+    return false;
+  }
+
+  const game = currentRoom.game;
+  if (game?.phase !== "drafting") {
+    return false;
+  }
+
+  const self = game.players?.find((player) => player.id === playerId);
+  const draftCards = Array.isArray(self?.draftCards) ? self.draftCards : [];
+  if (!draftCards.some((card) => (card.instanceId || card.id) === cardInstanceId)) {
+    return false;
+  }
+
+  const selectedIds = new Set(
+    (Array.isArray(self?.selectedDraftCards) ? self.selectedDraftCards : [])
+      .map((card) => card?.instanceId || card?.id)
+      .filter(Boolean)
+  );
+
+  if (selectedIds.has(cardInstanceId)) {
+    return false;
+  }
+
+  for (const pendingId of draftSelectionPendingIds) {
+    selectedIds.add(pendingId);
+  }
+
+  return selectedIds.size < handSize;
+}
+
 async function draftCard(cardInstanceId) {
-  if (!currentRoom || pendingAction || !cardInstanceId) {
+  if (!canQueueDraftSelection(cardInstanceId)) {
     return;
   }
 
   const code = currentRoom.code;
-  const requestId = nextRoomRequestId();
   roomMessage.textContent = "";
-  setBusy("draft", true);
+  draftSelectionPendingIds.add(cardInstanceId);
+  markDraftCardSelected(cardInstanceId);
+  renderRoom(currentRoom, appliedRoomRequestId);
+
+  draftSelectionQueue = draftSelectionQueue
+    .catch(() => {})
+    .then(() => submitQueuedDraftSelection(code, cardInstanceId));
+}
+
+async function submitQueuedDraftSelection(code, cardInstanceId) {
+  if (currentRoom?.code !== code || !draftSelectionPendingIds.has(cardInstanceId)) {
+    return;
+  }
 
   try {
     const payload = await draftCardRequest(code, playerId, cardInstanceId);
-    markDraftCardSelected(cardInstanceId);
-    renderRoom(payload.room, requestId);
-    if (payload.room?.game?.phase === "drafting") {
-      await pollRoomOnce(code, { force: true });
+    if (currentRoom?.code !== code) {
+      return;
     }
+
+    draftSelectionPendingIds.delete(cardInstanceId);
+    renderRoom(payload.room, nextRoomRequestId());
   } catch (error) {
+    draftSelectionPendingIds.delete(cardInstanceId);
+    if (currentRoom?.code !== code) {
+      return;
+    }
+
     roomMessage.textContent = error.message;
-  } finally {
-    setBusy("draft", false);
+    renderRoom(currentRoom, appliedRoomRequestId);
+    await pollRoomOnce(code, { force: true });
   }
 }
 
@@ -488,6 +540,7 @@ function enterRoom(room, requestId) {
   if (currentRoom?.code !== room.code) {
     resetRevealedCardUi();
     resetCopyRoomCodeFeedback();
+    resetDraftSelectionFeedback();
   }
   renderRoom(room, requestId);
   history.replaceState(null, "", `#room=${room.code}`);
@@ -504,6 +557,7 @@ function showEntry() {
   resetRollUi();
   resetRevealedCardUi();
   resetCopyRoomCodeFeedback();
+  resetDraftSelectionFeedback();
   currentRoom = null;
   entryView.classList.remove("hidden");
   lobbyView.classList.add("hidden");
@@ -520,6 +574,7 @@ function showRoomActions() {
   resetRollUi();
   resetRevealedCardUi();
   resetCopyRoomCodeFeedback();
+  resetDraftSelectionFeedback();
   currentRoom = null;
   entryView.classList.add("hidden");
   lobbyView.classList.remove("hidden");
@@ -545,6 +600,7 @@ function renderRoom(room, requestId = nextRoomRequestId()) {
     },
     revealedCardModal,
     recentDraftCardId,
+    draftSelectionPendingIds,
     recentlyRevealedCardKey,
     cardUsePending,
     acknowledgedRevealedCards,
@@ -1034,7 +1090,16 @@ function markDraftCardSelected(cardInstanceId) {
     if (currentRoom) {
       renderRoom(currentRoom, appliedRoomRequestId);
     }
-  }, 680);
+  }, 320);
+}
+
+function resetDraftSelectionFeedback() {
+  draftSelectionPendingIds.clear();
+  recentDraftCardId = "";
+  if (recentDraftCardTimer) {
+    window.clearTimeout(recentDraftCardTimer);
+    recentDraftCardTimer = null;
+  }
 }
 
 function markRecentlyRevealedCard(cardKey) {

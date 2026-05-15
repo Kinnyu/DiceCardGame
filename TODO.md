@@ -308,3 +308,40 @@
 - [x] 確認閃爍是否只發生在手機瀏覽器、Vercel 預覽網址、特定卡片詳情，或所有 modal 都會發生。
 - [x] 若是動畫問題，需調整 modal 與遮罩動畫，使背景和視窗不會反覆重繪或亮暗跳動。
 - [x] 驗收標準：連續開關卡牌詳情 modal 多次時，視窗、遮罩與背景不再出現明顯閃爍。
+
+## 操作順暢度優化待辦（2026-05-15）
+
+### 9. 選牌階段點擊卡牌後等待感過重
+負責：Draft Interaction Responsiveness Agent
+
+- [x] 參考使用者回報：選牌階段點一張牌後，卡牌翻開或選中後需要過一陣子才能再點下一張，連續操作不順。
+- [x] 建議先閱讀 `Client/app.js` 的 `draftCard(...)`、`pendingAction`、`pollRoomOnce(...)`、`markDraftCardSelected(...)`。
+- [x] 建議先閱讀 `Client/game-render.js` 的 `renderDraftPhase(...)`、`renderDraftCard(...)`、draft card disabled 判斷。
+- [x] 建議先閱讀 `Client/styles.css` 中 `.draft-card`、`.draft-card:disabled`、`.draft-card.just-selected`、draft phase 相關動畫。
+- [x] 檢查是否因為全域 `pendingAction` 讓所有候選卡在單張選牌 API 回來前都被 disabled，造成使用者感覺必須等待。
+- [x] 評估是否可以加入更即時的 local feedback / optimistic selected 狀態，讓點擊後立即有反應，同時避免重複送同一張牌。
+- [x] 檢查翻牌/選中動畫是否時間過長、是否阻擋 pointer interaction，必要時縮短動畫或解除不必要的操作阻塞。
+- [x] 驗收標準：選牌階段連續選 6 張牌時，每次點擊都能立即看到回饋，且不需要明顯等待上一張動畫或同步結束才知道操作生效。
+
+### 10. 遊玩階段按鈕與卡牌操作 pending 體感卡頓
+負責：Turn Interaction Responsiveness Agent
+
+- [ ] 參考使用者回報：遊玩階段按鈕處理也有卡頓感，包含擲骰、翻牌、使用效果、關閉/開啟卡牌詳情等操作。
+- [ ] 建議先閱讀 `Client/app.js` 的 `rollTurn(...)`、`handleTargetCardClick(...)`、`useRevealedCard(...)`、`cardUsePending`、`pendingAction`。
+- [ ] 建議先閱讀 `Client/game-render.js` 的 `renderTurnPhase(...)`、`getRollActionState(...)`、`renderBoardCard(...)`、`renderRevealedCardModal(...)`。
+- [ ] 建議先閱讀 `Client/styles.css` 中 `.central-roll-button`、`.table-card.target-card`、`.card-modal`、`.card-modal-backdrop`、操作動畫 keyframes。
+- [ ] 檢查 pending / disabled 狀態是否太廣，是否把不相關操作一起鎖住，導致玩家感覺 UI 沒反應。
+- [ ] 檢查擲骰、翻牌、使用效果是否需要最短動畫時間或人工等待；若有，確認是否可縮短或改成不阻塞下一步。
+- [ ] 補強即時回饋：按下後立刻顯示按鈕狀態、目標卡片狀態、loading 文字或局部狀態，不要等下一次 polling 才更新。
+- [ ] 驗收標準：回合中每個主要操作點擊後 100ms 內有可見回饋，且不相關按鈕/卡牌不會被過度 disabled。
+
+### 11. 前端重繪與 polling 造成的整體操作延遲盤點
+負責：Client Render Performance Agent
+
+- [ ] 針對整體操作卡頓，盤點是否由頻繁 `replaceChildren(...)`、整個遊戲畫面重 render、polling 回來後重建 DOM、或動畫重繪造成。
+- [ ] 建議先閱讀 `Client/app.js` 的 `startRoomPolling(...)`、`pollRoomOnce(...)`、`renderCurrentRoom(...)`、`setPending(...)`。
+- [ ] 建議先閱讀 `Client/game-render.js` 的 `renderGame(...)` 以及各階段 `replaceChildren(...)` 使用位置。
+- [ ] 建議先閱讀 `Client/styles.css` 中可能造成大量 repaint 的 `backdrop-filter`、大型 `box-shadow`、全畫面動畫、`:has(...)` phase selector。
+- [ ] 檢查 polling 間隔、force polling、API 操作後是否重複 fetch 或重複 render，避免單次操作造成多次畫面重建。
+- [ ] 評估是否可保留局部 DOM、減少整棵區塊重建，或至少避免在 pending 狀態反覆重建正在互動的卡片/按鈕。
+- [ ] 驗收標準：選牌與回合操作時沒有明顯整頁頓一下、按鈕延遲變化、卡片重排跳動；`npm run check` 通過。

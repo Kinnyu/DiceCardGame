@@ -7338,11 +7338,22 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 }
 
 .draft-card.just-selected {
-  animation: draft-select-flip 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: draft-select-flip 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .draft-card.just-selected::after {
-  animation: selected-check-pop 420ms cubic-bezier(0.18, 0.9, 0.24, 1.22) both;
+  animation: selected-check-pop 180ms cubic-bezier(0.18, 0.9, 0.24, 1.1) both;
+}
+
+.draft-card.pending-selection {
+  border-color: rgba(73, 139, 82, 0.9);
+  box-shadow:
+    0 0 0 2px rgba(79, 138, 69, 0.18),
+    var(--card-shadow, 0 5px 10px rgba(31, 25, 17, 0.16));
+}
+
+.draft-card.pending-selection::after {
+  background: #5f9d55;
 }
 
 .shell:has(#gamePanel[data-phase="arranging"]) .arrange-order-card.is-active {
@@ -7407,12 +7418,12 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 
 @keyframes draft-select-flip {
   0% {
-    transform: rotateY(72deg) scale(0.96);
-    opacity: 0.82;
+    transform: rotateY(22deg) scale(0.985);
+    opacity: 0.9;
   }
 
   58% {
-    transform: rotateY(-6deg) scale(1.018);
+    transform: rotateY(-3deg) scale(1.006);
   }
 
   100% {

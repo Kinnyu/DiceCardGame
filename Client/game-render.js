@@ -18,7 +18,8 @@ export function renderGame(room, context) {
   elements.gamePhaseTitle.textContent = `Game / ${context.getPhaseTitle(phase)}`;
   renderTurnIndicator(game, self, room, context);
   if (phase === "drafting") {
-    elements.turnIndicator.textContent = `已選 ${Math.min(getSelectedDraftCount(self), context.handSize)} / ${context.handSize}`;
+    const { selectedCount } = getDraftSelectionState(self, context);
+    elements.turnIndicator.textContent = `已選 ${selectedCount} / ${context.handSize}`;
   }
   renderDice(game, room, context);
   renderScores(game, room, context);
@@ -108,10 +109,10 @@ function renderDice(game, room, context) {
 
 export function renderDraftPanel(self, game, context) {
   const { elements, handSize, pendingAction } = context;
-  const draftCards = Array.isArray(self?.draftCards) ? self.draftCards.filter(Boolean) : [];
-  const selectedCards = Array.isArray(self?.selectedDraftCards) ? self.selectedDraftCards.filter(Boolean) : [];
-  const selectedIds = new Set(selectedCards.map((card) => card.instanceId || card.id).filter(Boolean));
-  const selectedCount = selectedCards.length;
+  const { draftCards, selectedIds, pendingDraftIds, selectedCount, pendingSelectionCount } = getDraftSelectionState(
+    self,
+    context
+  );
   const draftComplete = selectedCount >= handSize;
   const waitingOtherPlayers = draftComplete && game.players.some((player) => getSelectedDraftCount(player) < handSize);
 
@@ -122,7 +123,9 @@ export function renderDraftPanel(self, game, context) {
     return;
   }
 
-  if (draftComplete) {
+  if (draftComplete && pendingSelectionCount > 0) {
+    elements.draftHint.textContent = "正在確認選牌，候選牌仍會保持目前選中狀態。";
+  } else if (draftComplete) {
     elements.draftHint.textContent = waitingOtherPlayers
       ? "已選滿 6 張，等待其他玩家完成選牌。"
       : "已選滿 6 張，等待進入排牌階段。";
@@ -136,6 +139,7 @@ export function renderDraftPanel(self, game, context) {
         context,
         index,
         isSelected: selectedIds.has(card.instanceId || card.id),
+        isPendingSelection: pendingDraftIds.has(card.instanceId || card.id),
         disabled: Boolean(pendingAction) || draftComplete
       })
     )
@@ -187,11 +191,11 @@ function renderDraftActions(selectedCount, handSize, draftComplete, context) {
 }
 
 function renderDraftCard(card, options) {
-  const { context, index, isSelected, disabled } = options;
+  const { context, index, isSelected, isPendingSelection, disabled } = options;
   const cardId = card.instanceId || card.id || "";
   const isRecentlySelected = Boolean(isSelected && cardId && cardId === context.recentDraftCardId);
   const button = document.createElement("button");
-  button.className = `draft-card${isSelected ? ` selected revealed ${getCardVisualClass(card)}` : ""}${isRecentlySelected ? " just-selected" : ""}`;
+  button.className = `draft-card${isSelected ? ` selected revealed ${getCardVisualClass(card)}` : ""}${isPendingSelection ? " pending-selection" : ""}${isRecentlySelected ? " just-selected" : ""}`;
   button.type = "button";
   button.disabled = disabled || isSelected;
   button.setAttribute("aria-pressed", String(isSelected));
@@ -1201,6 +1205,34 @@ function formatCardType(type) {
 
 function getSelectedDraftCount(player) {
   return Array.isArray(player?.selectedDraftCards) ? player.selectedDraftCards.length : 0;
+}
+
+function getDraftSelectionState(player, context) {
+  const handSize = context.handSize;
+  const draftCards = Array.isArray(player?.draftCards) ? player.draftCards.filter(Boolean) : [];
+  const selectedCards = Array.isArray(player?.selectedDraftCards) ? player.selectedDraftCards.filter(Boolean) : [];
+  const serverSelectedIds = new Set(selectedCards.map((card) => card.instanceId || card.id).filter(Boolean));
+  const ownDraftIds = new Set(draftCards.map((card) => card.instanceId || card.id).filter(Boolean));
+  const pendingDraftIds = context.draftSelectionPendingIds instanceof Set ? context.draftSelectionPendingIds : new Set();
+  const selectedIds = new Set(serverSelectedIds);
+
+  for (const pendingId of pendingDraftIds) {
+    if (ownDraftIds.has(pendingId)) {
+      selectedIds.add(pendingId);
+    }
+  }
+
+  const pendingSelectionCount = [...pendingDraftIds].filter(
+    (id) => ownDraftIds.has(id) && !serverSelectedIds.has(id)
+  ).length;
+
+  return {
+    draftCards,
+    selectedIds,
+    pendingDraftIds,
+    selectedCount: Math.min(selectedIds.size, handSize),
+    pendingSelectionCount
+  };
 }
 
 function renderArrangedPreview(cards, handSize) {
