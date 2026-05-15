@@ -303,8 +303,8 @@
 ### 8. 卡牌詳情視窗出現整個視窗閃爍問題
 負責：Modal Flicker Investigation Agent
 
-- [ ] 參考 `Bug/image7.png`，檢查卡牌詳情 modal 開啟、關閉、背景遮罩、卡片內容渲染時是否有閃爍。
-- [ ] 排查是否由動畫 transition / keyframes、overlay backdrop blur、重新 mount/unmount、狀態更新或瀏覽器 repaint/reflow 造成整個視窗短暫閃爍。
-- [ ] 確認閃爍是否只發生在手機瀏覽器、Vercel 預覽網址、特定卡片詳情，或所有 modal 都會發生。
-- [ ] 若是動畫問題，需調整 modal 與遮罩動畫，使背景和視窗不會反覆重繪或亮暗跳動。
-- [ ] 驗收標準：連續開關卡牌詳情 modal 多次時，視窗、遮罩與背景不再出現明顯閃爍。
+- [x] 參考 `Bug/image7.png`，檢查卡牌詳情 modal 開啟、關閉、背景遮罩、卡片內容渲染時是否有閃爍。
+- [x] 排查是否由動畫 transition / keyframes、overlay backdrop blur、重新 mount/unmount、狀態更新或瀏覽器 repaint/reflow 造成整個視窗短暫閃爍。
+- [x] 確認閃爍是否只發生在手機瀏覽器、Vercel 預覽網址、特定卡片詳情，或所有 modal 都會發生。
+- [x] 若是動畫問題，需調整 modal 與遮罩動畫，使背景和視窗不會反覆重繪或亮暗跳動。
+- [x] 驗收標準：連續開關卡牌詳情 modal 多次時，視窗、遮罩與背景不再出現明顯閃爍。

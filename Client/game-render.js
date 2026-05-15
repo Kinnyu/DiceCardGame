@@ -864,16 +864,27 @@ function renderRevealedCardModal(game, context) {
     return;
   }
 
-  const backdrop = document.createElement("div");
-  backdrop.className = `card-modal-backdrop${existing && !existing.classList.contains("is-closing") ? " is-stable" : ""}`;
-  backdrop.addEventListener("click", (event) => {
-    if (event.target === backdrop) {
-      context.callbacks.closeRevealedCardModal();
-    }
-  });
+  const canUseEffect = canUseRevealedCardEffect(game, modal, card, player, context);
+  const modalSignature = getRevealedCardModalSignature(game, modal, card, player, context, canUseEffect);
+  const canReuseBackdrop = Boolean(existing && !existing.classList.contains("is-closing"));
+
+  if (canReuseBackdrop && existing.dataset.modalSignature === modalSignature) {
+    return;
+  }
+
+  const backdrop = canReuseBackdrop ? existing : document.createElement("div");
+  backdrop.className = `card-modal-backdrop${canReuseBackdrop ? " is-stable" : ""}`;
+  backdrop.dataset.modalSignature = modalSignature;
+  if (!canReuseBackdrop) {
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) {
+        context.callbacks.closeRevealedCardModal();
+      }
+    });
+  }
 
   const dialog = document.createElement("section");
-  dialog.className = `card-modal${existing && !existing.classList.contains("is-closing") ? " is-stable" : ""}`;
+  dialog.className = `card-modal${canReuseBackdrop ? " is-stable" : ""}`;
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", "卡牌詳情");
@@ -955,7 +966,6 @@ function renderRevealedCardModal(game, context) {
   effectPanel.append(effectDescription);
   dialog.append(effectPanel);
 
-  const canUseEffect = canUseRevealedCardEffect(game, modal, card, player, context);
   const actions = document.createElement("div");
   actions.className = `card-modal-actions${canUseEffect ? "" : " single-action"}`;
 
@@ -981,9 +991,13 @@ function renderRevealedCardModal(game, context) {
   }
 
   dialog.append(actions);
-  backdrop.append(dialog);
-  existing?.replaceWith(backdrop);
-  if (!existing) {
+  backdrop.replaceChildren(dialog);
+  if (canReuseBackdrop) {
+    return;
+  }
+  if (existing) {
+    existing.replaceWith(backdrop);
+  } else {
     context.elements.gamePanel.append(backdrop);
   }
 }
@@ -994,7 +1008,35 @@ function closeRenderedModal(existing) {
   }
 
   existing.classList.add("is-closing");
+  existing.dataset.modalSignature = "";
   window.setTimeout(() => existing.remove(), 140);
+}
+
+function getRevealedCardModalSignature(game, modal, card, player, context, canUseEffect) {
+  const lastRoll = game?.dice?.lastRoll;
+  return [
+    context.currentRoom?.code || "",
+    modal?.key || "",
+    modal?.playerId || "",
+    modal?.position || "",
+    card?.instanceId || card?.id || "",
+    card?.name || "",
+    card?.type || "",
+    card?.value ?? "",
+    card?.description || "",
+    card?.effect || "",
+    card?.revealed ? "revealed" : "hidden",
+    card?.used ? "used" : "unused",
+    player?.eliminated ? "eliminated" : "active",
+    game?.turnPlayerId || "",
+    lastRoll?.playerId || "",
+    lastRoll?.position ?? lastRoll?.result ?? "",
+    lastRoll?.status || "",
+    getCardSourceText(game, modal, context),
+    getCardStatusText(card),
+    canUseEffect ? "can-use" : "view-only",
+    context.cardUsePending ? "pending" : "idle"
+  ].join("|");
 }
 
 function canUseRevealedCardEffect(game, modal, card, player, context) {

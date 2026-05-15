@@ -7577,6 +7577,24 @@ body:has(#gamePanel[data-phase="arranging"])::after {
   }
 }
 
+.card-modal-backdrop {
+  backface-visibility: hidden;
+  contain: layout paint style;
+  isolation: isolate;
+  transform: translateZ(0);
+  will-change: auto;
+}
+
+.card-modal {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.card-modal-backdrop:not(.is-stable),
+.card-modal-backdrop.is-closing {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .draft-card,
   .arrange-order-card,
