@@ -790,7 +790,7 @@ function renderBoardCard(card, position, options = {}) {
 
   const isUsed = Boolean(card?.used);
 
-  if (card?.revealed && !isUsed) {
+  if (card?.revealed) {
     const icon = document.createElement("span");
     icon.className = `card-art-icon ${getCardVisualClass(card)}`;
     icon.setAttribute("aria-hidden", "true");

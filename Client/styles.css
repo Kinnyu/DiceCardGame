@@ -7182,22 +7182,39 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 
 .table-card.revealed.used {
   padding-right: 5px;
-  border-color: rgba(137, 145, 132, 0.5);
-  background: linear-gradient(180deg, rgba(247, 247, 241, 0.96), rgba(226, 231, 224, 0.9));
-  color: #68706a;
+  border-color: rgba(180, 149, 89, 0.58);
+  background:
+    linear-gradient(var(--card-gold-soft) 0 0) left 5px top 5px / 12px 1px no-repeat,
+    linear-gradient(var(--card-gold-soft) 0 0) left 5px top 5px / 1px 12px no-repeat,
+    linear-gradient(var(--card-gold-soft) 0 0) right 5px bottom 5px / 12px 1px no-repeat,
+    linear-gradient(var(--card-gold-soft) 0 0) right 5px bottom 5px / 1px 12px no-repeat,
+    radial-gradient(circle at 50% 42%, rgba(236, 221, 178, 0.18), transparent 58%),
+    linear-gradient(180deg, #315d55, #193f3a);
+  color: rgba(255, 245, 220, 0.94);
   filter: none;
+  opacity: 1;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
-    0 5px 10px rgba(31, 25, 17, 0.08);
+    inset 0 0 0 1px rgba(236, 221, 178, 0.2),
+    0 5px 10px rgba(31, 25, 17, 0.12);
 }
 
 .table-card.used::after {
   content: none;
 }
 
-.table-card.used .card-art-icon,
 .table-card.used .card-effect {
   display: none;
+}
+
+.table-card.revealed.used .card-art-icon {
+  top: 36%;
+  left: 50%;
+  right: auto;
+  display: grid;
+  width: clamp(12px, 40%, 21px);
+  color: rgba(236, 221, 178, 0.9);
+  opacity: 0.9;
+  transform: translate(-50%, -50%);
 }
 
 .table-card.used strong {
@@ -7214,12 +7231,12 @@ body:has(#gamePanel[data-phase="arranging"])::after {
 .table-card.used .used-marker {
   right: 3px;
   bottom: 3px;
-  border: 1px solid rgba(117, 127, 112, 0.22);
-  background: rgba(255, 255, 255, 0.82);
-  color: #5f6b61;
+  border: 1px solid rgba(236, 221, 178, 0.34);
+  background: rgba(244, 234, 208, 0.88);
+  color: #315d55;
   font-size: 0.56rem;
   line-height: 1;
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(31, 25, 17, 0.1);
 }
 
 .large-card {
