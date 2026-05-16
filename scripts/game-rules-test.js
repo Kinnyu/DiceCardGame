@@ -5,8 +5,6 @@ import {
   createDraftCards,
   createGameDeck,
   DRAFT_CARD_COUNT,
-  DRAFT_MINUS_CARD_COUNT,
-  DRAFT_PLUS_CARD_COUNT,
   drawCards,
   HAND_SIZE,
   shuffleDeck
@@ -36,8 +34,8 @@ import {
 testCardDefinitionsDeckAndDraw();
 testSafeRandomRolls();
 testSafeRandomShuffle();
-testCreateDraftCardsBuildsShuffledPlusMinusChoices();
-testDraftingGameStartsPlayersWithTenCandidateCards();
+testCreateDraftCardsBuildsShuffledFullCardPool();
+testDraftingGameStartsPlayersWithThirteenCandidateCards();
 testDealInitialHandsDealsFullHandsAndAdvances();
 testSelectDraftCardRecordsSixChoices();
 testSelectDraftCardRejectsInvalidDuplicateAndExtraChoices();
@@ -98,7 +96,7 @@ function testSafeRandomShuffle() {
   assert(deck.every(Boolean), "shuffle should not break the original deck");
 }
 
-function testCreateDraftCardsBuildsShuffledPlusMinusChoices() {
+function testCreateDraftCardsBuildsShuffledFullCardPool() {
   let randomCalls = 0;
   const originalOrder = createDraftCards("Player A", { random: () => 0.99 });
   const draftCards = createDraftCards("Player A", {
@@ -109,14 +107,21 @@ function testCreateDraftCardsBuildsShuffledPlusMinusChoices() {
     }
   });
 
-  assert(draftCards.length === DRAFT_CARD_COUNT, "draft cards should contain ten candidate cards");
+  assert(draftCards.length === DRAFT_CARD_COUNT, "draft cards should contain thirteen candidate cards");
+  assert(DRAFT_CARD_COUNT === 13, "draft card pool should contain exactly thirteen cards");
   assert(
-    draftCards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT,
-    "draft cards should contain five plus cards"
+    draftCards.filter((card) => card.type === "score" && card.value > 0).length === 3,
+    "draft cards should contain +1, +2, and +3 score cards"
   );
   assert(
-    draftCards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT,
-    "draft cards should contain five minus cards"
+    draftCards.filter((card) => card.type === "score" && card.value < 0).length === 3,
+    "draft cards should contain -1, -2, and -3 score cards"
+  );
+  assert(
+    ["invert", "refillTwo", "seal", "swap", "clear", "steal", "bomb"].every((type) =>
+      draftCards.some((card) => card.type === type)
+    ),
+    "draft cards should contain all seven special card types"
   );
   assert(
     new Set(draftCards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT,
@@ -127,8 +132,8 @@ function testCreateDraftCardsBuildsShuffledPlusMinusChoices() {
     "draft cards should support an injected unique instance id prefix"
   );
   assert(
-    draftCards.every((card) => card.type === "score" && card.description),
-    "draft cards should include score details and descriptions"
+    draftCards.every((card) => card.description),
+    "draft cards should include descriptions"
   );
   assert(
     draftCards.every((card) => hasStableCardShape(card)),
@@ -163,19 +168,20 @@ function testDealInitialHandsDealsFullHandsAndAdvances() {
   assert(game.players.every((player) => player.deckCount === 0), "dealInitialHands should reset deck count");
 }
 
-function testDraftingGameStartsPlayersWithTenCandidateCards() {
+function testDraftingGameStartsPlayersWithThirteenCandidateCards() {
   const game = createDraftingGame();
 
   assert(game.phase === GAME_PHASE_DRAFTING, "drafting game should start in drafting phase");
   for (const player of game.players) {
-    assert(player.draftCards.length === DRAFT_CARD_COUNT, "each player should have ten draft candidate cards");
+    assert(player.draftCards.length === DRAFT_CARD_COUNT, "each player should have thirteen draft candidate cards");
+    assert(player.drawDeck.length === 0, "draw deck should be empty before the player finishes drafting");
     assert(
-      player.draftCards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT,
-      "each player should have five plus draft cards"
+      player.draftCards.filter((card) => card.type === "score" && card.value > 0).length === 3,
+      "each player should have three positive score draft cards"
     );
     assert(
-      player.draftCards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT,
-      "each player should have five minus draft cards"
+      player.draftCards.filter((card) => card.type === "score" && card.value < 0).length === 3,
+      "each player should have three negative score draft cards"
     );
     assert(
       new Set(player.draftCards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT,
@@ -207,6 +213,12 @@ function testSelectDraftCardRecordsSixChoices() {
   assert(
     player.hand.map((card) => card.instanceId).join(",") === selectedIds.join(","),
     "selecting six draft cards should sync the hand for arranging"
+  );
+  assert(player.drawDeck.length === DRAFT_CARD_COUNT - HAND_SIZE, "selecting six draft cards should keep seven draw deck cards");
+  assertNoMoreThanThirteenCards(player, "draft-complete player should keep one thirteen-card set");
+  assert(
+    player.drawDeck.every((card) => !selectedIds.includes(card.instanceId)),
+    "draw deck should contain only unselected draft cards"
   );
   assert(
     player.selectedDraftCards.every((card) => card.faceUp === false && card.revealed === false),
@@ -436,6 +448,9 @@ function testPassRightAssignsReceivedHandsAndStartsTurn() {
   game.players[0].arrangedCards = makePositionedCards("a");
   game.players[1].arrangedCards = makePositionedCards("b");
   game.players[2].arrangedCards = makePositionedCards("c");
+  game.players[0].drawDeck = makeDrawDeck("a");
+  game.players[1].drawDeck = makeDrawDeck("b");
+  game.players[2].drawDeck = makeDrawDeck("c");
 
   const result = passArrangedCardsRight(game);
 
@@ -446,6 +461,13 @@ function testPassRightAssignsReceivedHandsAndStartsTurn() {
   assert(game.players[0].receivedCards.every((card) => card.instanceId.startsWith("c-")), "A should receive C cards");
   assert(game.players[1].receivedCards.every((card) => card.instanceId.startsWith("a-")), "B should receive A cards");
   assert(game.players[2].receivedCards.every((card) => card.instanceId.startsWith("b-")), "C should receive B cards");
+  assert(game.players[0].drawDeck.length === DRAFT_CARD_COUNT - HAND_SIZE, "A should receive C draw deck");
+  assert(game.players[1].drawDeck.length === DRAFT_CARD_COUNT - HAND_SIZE, "B should receive A draw deck");
+  assert(game.players[2].drawDeck.length === DRAFT_CARD_COUNT - HAND_SIZE, "C should receive B draw deck");
+  assert(game.players[0].drawDeck.every((card) => card.instanceId.startsWith("c-draw-")), "A draw deck should come from C");
+  assert(game.players[1].drawDeck.every((card) => card.instanceId.startsWith("a-draw-")), "B draw deck should come from A");
+  assert(game.players[2].drawDeck.every((card) => card.instanceId.startsWith("b-draw-")), "C draw deck should come from B");
+  game.players.forEach((player) => assertNoMoreThanThirteenCards(player, "passed player should hold six board cards and seven draw cards"));
   assert(game.players.every((player) => player.arrangedCards.length === 0), "passing should clear arranged cards");
 }
 
@@ -460,8 +482,11 @@ function testPassUsesActivePlayerRingOnly() {
   eliminated.eliminated = true;
   eliminated.arrangedCards = makePositionedCards("eliminated");
   eliminated.receivedCards = makePositionedCards("stale");
+  eliminated.drawDeck = makeDrawDeck("stale");
   left.arrangedCards = makePositionedCards("left");
+  left.drawDeck = makeDrawDeck("left");
   right.arrangedCards = makePositionedCards("right");
+  right.drawDeck = makeDrawDeck("right");
 
   const result = passArrangedCardsRight(game);
 
@@ -470,7 +495,10 @@ function testPassUsesActivePlayerRingOnly() {
   assert(right.receivedCards.length === HAND_SIZE, "right active player should receive a full hand");
   assert(left.receivedCards.every((card) => card.instanceId.startsWith("right-")), "left should receive right cards");
   assert(right.receivedCards.every((card) => card.instanceId.startsWith("left-")), "right should receive left cards");
+  assert(left.drawDeck.every((card) => card.instanceId.startsWith("right-draw-")), "left should receive right draw deck");
+  assert(right.drawDeck.every((card) => card.instanceId.startsWith("left-draw-")), "right should receive left draw deck");
   assert(eliminated.receivedCards.length === 0, "eliminated player should not receive active cards");
+  assert(eliminated.drawDeck.length === 0, "eliminated player should not keep a draw deck");
 }
 
 function testPassRejectsZeroActivePlayersWithoutMutatingPhase() {
@@ -549,7 +577,10 @@ function testDealRequiresEnoughCardsWithoutMutatingPhase() {
     { id: "b", name: "B" }
   ]);
   const originalPhase = game.phase;
-  const result = dealInitialHands(game, createDeck(undefined, 2));
+  const result = dealInitialHands(
+    game,
+    createDeck([{ id: "short", name: "Short", type: "score", value: 1, description: "short" }], 2)
+  );
 
   assert(result.error === gameRuleErrors.deckTooSmall, "short deck should return a clear error");
   assert(game.phase === originalPhase, "short deck should not advance phase");
@@ -726,6 +757,29 @@ function makePositionedCards(prefix) {
     faceUp: false,
     revealed: false
   }));
+}
+
+function makeDrawDeck(prefix) {
+  return Array.from({ length: DRAFT_CARD_COUNT - HAND_SIZE }, (_, index) => ({
+    id: `${prefix}-draw`,
+    instanceId: `${prefix}-draw-${index + 1}`,
+    sourceSetId: prefix,
+    type: "score",
+    value: 1,
+    faceUp: false,
+    revealed: false
+  }));
+}
+
+function assertNoMoreThanThirteenCards(player, message) {
+  const visibleSetCards = [
+    ...(Array.isArray(player.receivedCards) ? player.receivedCards : []),
+    ...(Array.isArray(player.arrangedCards) ? player.arrangedCards : []),
+    ...(Array.isArray(player.drawDeck) ? player.drawDeck : [])
+  ];
+  const activeSetCount = visibleSetCards.length || ((player.selectedDraftCards?.length || 0) + (player.drawDeck?.length || 0));
+  assert(activeSetCount <= DRAFT_CARD_COUNT, `${message}: should not exceed thirteen cards`);
+  assert(new Set(visibleSetCards.map((card) => card.instanceId)).size === visibleSetCards.length, `${message}: instance ids should not duplicate`);
 }
 
 function assert(condition, message) {

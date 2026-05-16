@@ -101,6 +101,7 @@ async function testStartCreatesPrivateGameStateInStore() {
       (player) =>
         player.draftCards.length === DRAFT_CARD_COUNT &&
         player.hand.length === HAND_SIZE &&
+        player.drawDeck.length === 0 &&
         player.arrangedCards.length === 0 &&
         player.receivedCards.length === 0 &&
         player.usedPositions.length === 0
@@ -249,6 +250,11 @@ async function testDraftCardApiSelectsSixOwnChoices() {
   const storedPlayer = rooms.get(code).game.players.find((player) => player.id === "one");
   const selectedIds = oneDraftIds.slice(0, HAND_SIZE);
   assert(storedPlayer.selectedDraftCards.length === HAND_SIZE, "store should record six selected draft cards");
+  assert(storedPlayer.drawDeck.length === DRAFT_CARD_COUNT - HAND_SIZE, "store should keep seven unselected draw deck cards");
+  assert(
+    storedPlayer.drawDeck.every((card) => !selectedIds.includes(card.instanceId)),
+    "stored draw deck should contain only unselected cards"
+  );
   assert(
     storedPlayer.selectedDraftCards.map((card) => card.instanceId).join(",") === selectedIds.join(","),
     "store should preserve selected draft order"
@@ -456,7 +462,7 @@ async function testGameFlowApi() {
   const revealedCard = firstReveal.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
   assert(revealedCard.revealed === true, "revealed card should be revealed in public view");
   assert(revealedCard.state === "revealed", "revealed card should expose revealed state");
-  assert(revealedCard.type === "score", "revealed card should expose type");
+  assert(typeof revealedCard.type === "string" && revealedCard.type, "revealed card should expose type");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value");
   assert(Object.hasOwn(revealedCard, "description"), "revealed card should expose description");
   assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect");
@@ -657,7 +663,7 @@ async function testViewerSpecificPublicViews() {
   const twoWaitingPlayer = oneArranged.payload.room.game.players.find((player) => player.id === "two");
 
   assert(oneArrangedPlayer.arrangedCards.length === HAND_SIZE, "arranged player should see own arranged state");
-  assert(oneArrangedPlayer.arrangedCards[0].type === "score", "arranged player should see own card details");
+  assert(typeof oneArrangedPlayer.arrangedCards[0].type === "string", "arranged player should see own card details");
   assert(!Object.hasOwn(twoWaitingPlayer, "hand"), "arrange response should still hide the other hand");
   assertNoSecretState(oneArranged.payload, "arrange response should expose only viewer card details");
 
@@ -669,14 +675,17 @@ async function testViewerSpecificPublicViews() {
     playerId: "two",
     cardInstanceIds: twoCardInstanceIds
   });
-  const hiddenCard = twoArranged.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
+  const passedOnePlayer = twoArranged.payload.room.game.players.find((player) => player.id === "one");
+  const hiddenCard = passedOnePlayer.receivedCards[0];
+  assert(passedOnePlayer.drawDeckCount === DRAFT_CARD_COUNT - HAND_SIZE, "receiver should see draw deck count after pass");
+  assert(!Object.hasOwn(passedOnePlayer, "drawDeck"), "public view should not expose draw deck contents after pass");
   assertHiddenCardSafe(hiddenCard, "unrevealed received card after pass");
 
   const turn = await callController(store, "POST", `${code}/turn`, { playerId: "one" }, () => 0);
   const revealedTurn = await callController(store, "POST", `${code}/reveal`, { playerId: "one", position: 1 });
   const revealedCard = revealedTurn.payload.room.game.players.find((player) => player.id === "one").receivedCards[0];
   assert(revealedCard.revealed === true, "resolved turn should reveal the selected card");
-  assert(revealedCard.type === "score", "revealed card should expose type after turn");
+  assert(typeof revealedCard.type === "string" && revealedCard.type, "revealed card should expose type after turn");
   assert(Object.hasOwn(revealedCard, "value"), "revealed card should expose value after turn");
   assert(Object.hasOwn(revealedCard, "description"), "revealed card should expose description after turn");
   assert(!Object.hasOwn(revealedCard, "effect"), "revealed card should not expose legacy effect after turn");
@@ -1105,9 +1114,11 @@ function assertPublicGameShape(game, message, expectedPhase = "drafting") {
   assert(player.eliminated === false, `${message}: eliminated flag`);
   assert(player.deckCount === 0, `${message}: deck count`);
   assert(player.draftCardCount === DRAFT_CARD_COUNT, `${message}: public draft card count`);
+  assert(player.drawDeckCount === 0, `${message}: public draw deck count`);
   assert(player.handCount === HAND_SIZE, `${message}: public hand count`);
   assert(!Object.hasOwn(player, "draftCards"), `${message}: public view should not expose draft cards without viewer`);
   assert(!Object.hasOwn(player, "selectedDraftCards"), `${message}: public view should not expose selected draft cards without viewer`);
+  assert(!Object.hasOwn(player, "drawDeck"), `${message}: public view should not expose draw deck contents`);
   assert(!Object.hasOwn(player, "hand"), `${message}: public view should not expose hand`);
   assert(Array.isArray(player.arrangedCards), `${message}: arranged cards`);
   assert(Array.isArray(player.receivedCards), `${message}: received cards`);
@@ -1167,6 +1178,7 @@ function assertNoSecretState(payload, message) {
 
   for (const player of game.players) {
     assert(!Object.hasOwn(player, "deck"), `${message}: player should not expose deck`);
+    assert(!Object.hasOwn(player, "drawDeck"), `${message}: player should not expose draw deck contents`);
 
     for (const card of [...player.arrangedCards, ...player.receivedCards]) {
       if (!card) {
