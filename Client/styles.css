@@ -1556,6 +1556,19 @@ button.position-card:hover:not(:disabled),
     gap: 14px;
   }
 
+  .language-switcher {
+    top: 10px;
+    right: 10px;
+    gap: 6px;
+    font-size: 0.72rem;
+  }
+
+  .language-switcher select {
+    max-width: 112px;
+    min-height: 30px;
+    padding-left: 8px;
+  }
+
   .entry-view h1 {
     font-size: clamp(2.45rem, 18vw, 4.25rem);
     line-height: 0.95;
@@ -1600,10 +1613,15 @@ button.position-card:hover:not(:disabled),
 
   .shell:has(#gamePanel:not(.hidden)) .room-topbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 6px;
     padding-bottom: 4px;
+  }
+
+  .room-topbar .language-switcher {
+    justify-self: end;
+    margin-left: 0;
   }
 
   .shell:has(#gamePanel:not(.hidden)) .room-topbar > div {
@@ -4632,6 +4650,41 @@ body:has(#entryView:not(.hidden))::after {
   grid-template-rows: auto auto auto;
   gap: 0;
   padding: clamp(86px, 17dvh, 140px) 24px 104px;
+}
+
+.language-switcher {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #456a63;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.language-switcher select {
+  min-height: 32px;
+  max-width: 128px;
+  padding: 0 26px 0 10px;
+  border: 1px solid rgba(91, 112, 85, 0.38);
+  border-radius: 8px;
+  color: #243128;
+  background: rgba(255, 252, 242, 0.78);
+  font: inherit;
+}
+
+.room-topbar .language-switcher {
+  position: static;
+  margin-left: auto;
+}
+
+.room-topbar .language-switcher select {
+  max-width: 116px;
+  background: rgba(255, 252, 242, 0.92);
 }
 
 .shell:has(#entryView:not(.hidden)) .brand-mark {

@@ -10,15 +10,23 @@
   <body>
     <main class="shell">
       <section class="entry-view" id="entryView" aria-labelledby="entryTitle">
+        <label class="language-switcher" for="localeSelect">
+          <span data-i18n="language.label">語言</span>
+          <select id="localeSelect" aria-label="語言" data-locale-select>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+          </select>
+        </label>
         <div class="brand-mark" aria-hidden="true">
           <span class="brand-card"></span>
           <span class="brand-die"></span>
         </div>
-        <h1 id="entryTitle">骰卡傳遞</h1>
-        <button id="entryStartButton" class="primary-button entry-start-button" type="button">開始</button>
+        <h1 id="entryTitle" data-i18n="entry.title">骰卡傳遞</h1>
+        <button id="entryStartButton" class="primary-button entry-start-button" type="button" data-i18n="entry.start">開始</button>
       </section>
 
-      <section class="brand-panel" aria-label="Game preview">
+      <section class="brand-panel" aria-label="Game preview" data-i18n-aria-label="brand.preview">
         <div class="dice-scene" aria-hidden="true">
           <div class="die die-one"><span></span></div>
           <div class="die die-two"><span></span><span></span></div>
@@ -30,7 +38,7 @@
         <div>
           <p class="eyebrow">Online Room</p>
           <h1>Dice Card Game</h1>
-          <p class="intro">建立房間、邀請玩家，擲骰翻牌決勝負。</p>
+          <p class="intro" data-i18n="brand.intro">建立房間、邀請玩家，擲骰翻牌決勝負。</p>
         </div>
       </section>
 
@@ -46,24 +54,24 @@
 
         <div class="panel-heading">
           <p class="eyebrow">ROOM</p>
-          <h2 id="roomActionTitle">房間操作</h2>
+          <h2 id="roomActionTitle" data-i18n="lobby.title">房間操作</h2>
         </div>
 
         <label class="field">
-          <span>暱稱</span>
-          <input id="nameInput" maxlength="18" autocomplete="nickname" placeholder="例如：Joey" />
+          <span data-i18n="lobby.nickname">暱稱</span>
+          <input id="nameInput" maxlength="18" autocomplete="nickname" placeholder="例如：Joey" data-i18n-placeholder="lobby.nicknamePlaceholder" />
         </label>
 
         <div class="actions">
-          <button id="createRoomButton" class="primary-button" type="button">建立房間</button>
+          <button id="createRoomButton" class="primary-button" type="button" data-i18n="lobby.create">建立房間</button>
         </div>
 
         <div class="join-row">
           <label class="field">
-            <span>房號</span>
+            <span data-i18n="lobby.roomCode">房號</span>
             <input id="roomCodeInput" maxlength="5" autocomplete="off" placeholder="A7K2Q" />
           </label>
-          <button id="joinRoomButton" class="secondary-button" type="button">加入</button>
+          <button id="joinRoomButton" class="secondary-button" type="button" data-i18n="lobby.join">加入</button>
         </div>
 
         <p class="message" id="lobbyMessage" role="status"></p>
@@ -73,101 +81,109 @@
         <div class="room-topbar">
           <div class="room-title">
             <p class="eyebrow">ROOM</p>
-            <h2>房間</h2>
+            <h2 data-i18n="room.title">房間</h2>
           </div>
-          <button id="settingsButton" class="icon-button" type="button" aria-label="設定" aria-expanded="false" aria-controls="settingsMenu">•••</button>
+          <label class="language-switcher room-language-switcher" for="roomLocaleSelect">
+            <span data-i18n="language.label">語言</span>
+            <select id="roomLocaleSelect" aria-label="語言" data-locale-select>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <button id="settingsButton" class="icon-button" type="button" aria-label="設定" aria-expanded="false" aria-controls="settingsMenu" data-i18n-aria-label="room.settings">•••</button>
           <div id="settingsMenu" class="settings-backdrop hidden">
             <div class="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
               <div class="settings-heading">
-                <h3 id="settingsTitle">設定</h3>
+                <h3 id="settingsTitle" data-i18n="room.settings">設定</h3>
               </div>
               <div class="settings-section-title settings-room-title">
-                <span>房間</span>
+                <span data-i18n="room.title">房間</span>
               </div>
               <div class="settings-detail-list">
                 <div class="settings-room-code">
-                  <span>房號</span>
+                  <span data-i18n="lobby.roomCode">房號</span>
                   <strong id="settingsRoomCode"></strong>
                 </div>
                 <div class="settings-room-code">
-                  <span>玩家</span>
+                  <span data-i18n="room.players">玩家</span>
                   <strong id="settingsPlayerCount"></strong>
                 </div>
               </div>
               <div class="settings-section-title settings-actions-title">
-                <span>操作</span>
+                <span data-i18n="room.actions">操作</span>
               </div>
               <div class="settings-actions">
-                <button id="returnToLobbyButton" class="secondary-button full-width" type="button">回到 Lobby</button>
-                <button id="settingsCancelButton" class="secondary-button full-width" type="button">取消</button>
-                <button id="leaveRoomButton" class="danger-button full-width" type="button">離開房間</button>
-                <button id="settingsCloseButton" class="primary-button full-width" type="button">關閉設定</button>
+                <button id="returnToLobbyButton" class="secondary-button full-width" type="button" data-i18n="room.returnLobby">回到 Lobby</button>
+                <button id="settingsCancelButton" class="secondary-button full-width" type="button" data-i18n="room.cancel">取消</button>
+                <button id="leaveRoomButton" class="danger-button full-width" type="button" data-i18n="room.leave">離開房間</button>
+                <button id="settingsCloseButton" class="primary-button full-width" type="button" data-i18n="room.closeSettings">關閉設定</button>
               </div>
             </div>
           </div>
         </div>
 
         <div class="room-code-card">
-          <span>房號</span>
+          <span data-i18n="lobby.roomCode">房號</span>
           <strong id="roomCodeDisplay"></strong>
-          <button id="roomCopyCodeButton" class="secondary-button" type="button">複製</button>
+          <button id="roomCopyCodeButton" class="secondary-button" type="button" data-i18n="room.copy">複製</button>
         </div>
 
-        <h3 class="room-subheading">玩家</h3>
+        <h3 class="room-subheading" data-i18n="room.players">玩家</h3>
         <ul class="player-list" id="playerList"></ul>
 
-        <button id="startGameButton" class="primary-button full-width" type="button">開始遊戲</button>
-        <button id="readyLeaveRoomButton" class="danger-button ready-leave-button full-width" type="button">離開房間</button>
+        <button id="startGameButton" class="primary-button full-width" type="button" data-i18n="room.startGame">開始遊戲</button>
+        <button id="readyLeaveRoomButton" class="danger-button ready-leave-button full-width" type="button" data-i18n="room.leave">離開房間</button>
 
-        <section class="game-panel hidden" id="gamePanel" aria-label="遊戲畫面">
+        <section class="game-panel hidden" id="gamePanel" aria-label="遊戲畫面" data-i18n-aria-label="game.aria">
           <div class="game-heading">
             <div>
               <p class="eyebrow">Game</p>
-              <h3 id="gamePhaseTitle">等待開始</h3>
+              <h3 id="gamePhaseTitle" data-i18n="game.waitingStart">等待開始</h3>
             </div>
-            <div class="turn-pill" id="turnIndicator">尚未開始</div>
+            <div class="turn-pill" id="turnIndicator" data-i18n="game.notStarted">尚未開始</div>
           </div>
 
-          <div class="dice-result" id="diceResult">等待第一擲</div>
+          <div class="dice-result" id="diceResult" data-i18n="game.waitingFirstRoll">等待第一擲</div>
 
           <div class="game-section hidden" id="draftPanel">
             <div class="section-heading">
-              <h4>選牌階段</h4>
-              <p id="draftHint">從 10 張候選牌中選出 6 張。</p>
+              <h4 data-i18n="phase.drafting">選牌階段</h4>
+              <p id="draftHint" data-i18n="draft.hintStatic">從 10 張候選牌中選出 6 張。</p>
             </div>
             <div class="draft-grid" id="draftCards"></div>
           </div>
 
           <div class="game-section hidden" id="arrangePanel">
             <div class="section-heading">
-              <h4>排牌階段</h4>
-              <p id="arrangeHint">調整 1 到 6 的牌序。</p>
+              <h4 data-i18n="phase.arranging">排牌階段</h4>
+              <p id="arrangeHint" data-i18n="arrange.hintStatic">調整 1 到 6 的牌序。</p>
             </div>
             <div class="slot-grid" id="arrangeSlots"></div>
             <div class="hand-grid" id="handCards"></div>
-            <button id="submitArrangeButton" class="primary-button full-width" type="button">送出排列</button>
-            <button id="resetArrangeButton" class="secondary-button full-width" type="button">重置順序</button>
+            <button id="submitArrangeButton" class="primary-button full-width" type="button" data-i18n="arrange.submit">送出排列</button>
+            <button id="resetArrangeButton" class="secondary-button full-width" type="button" data-i18n="arrange.reset">重置順序</button>
           </div>
 
           <div class="game-section hidden" id="turnPanel">
             <div class="section-heading">
-              <h4>回合階段</h4>
-              <p id="turnHint">輪到你時擲骰並翻開指定位置。</p>
+              <h4 data-i18n="phase.playing">回合階段</h4>
+              <p id="turnHint" data-i18n="turn.hintStatic">輪到你時擲骰並翻開指定位置。</p>
             </div>
             <div class="tabletop-board" id="boardCards"></div>
-            <button id="rollButton" class="primary-button full-width" type="button">擲骰</button>
+            <button id="rollButton" class="primary-button full-width" type="button" data-i18n="turn.roll">擲骰</button>
           </div>
 
           <div class="game-section score-section">
             <div class="section-heading">
-              <h4>玩家狀態</h4>
+              <h4 data-i18n="score.players">玩家狀態</h4>
             </div>
             <ul class="score-list" id="scoreList"></ul>
           </div>
 
           <div class="game-section hidden" id="finishedPanel">
             <div class="section-heading">
-              <h4>遊戲結果</h4>
+              <h4 data-i18n="phase.result">遊戲結果</h4>
               <p id="winnerText"></p>
             </div>
           </div>

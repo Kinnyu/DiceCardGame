@@ -10,11 +10,13 @@ import {
   startGameRequest,
   useCardRequest
 } from "./api-client.js";
+import { getLocale, setupLocaleSwitcher, t, translatePageStaticText } from "./i18n.js";
 import { getPlayerNameById, renderRoom as renderRoomView } from "./room-render.js";
 
 const lobbyView = document.querySelector("#lobbyView");
 const entryView = document.querySelector("#entryView");
 const roomView = document.querySelector("#roomView");
+const localeSelects = [...document.querySelectorAll("[data-locale-select]")];
 const entryStartButton = document.querySelector("#entryStartButton");
 const nameInput = document.querySelector("#nameInput");
 const roomCodeInput = document.querySelector("#roomCodeInput");
@@ -60,6 +62,7 @@ const elements = {
   lobbyView,
   entryView,
   roomView,
+  localeSelects,
   entryStartButton,
   nameInput,
   roomCodeInput,
@@ -145,6 +148,26 @@ let settingsCloseTimer = null;
 const acknowledgedRevealedCards = new Set();
 
 nameInput.value = localStorage.getItem("dice-card-player-name") || "";
+translatePageStaticText();
+localeSelects.forEach((select) => {
+  setupLocaleSwitcher(select, () => {
+    syncLocaleSelects();
+    translatePageStaticText();
+    resetCopyRoomCodeFeedback();
+    if (currentRoom) {
+      renderRoom(currentRoom, appliedRoomRequestId);
+      return;
+    }
+    renderStaticFallbackText();
+  });
+});
+
+function syncLocaleSelects() {
+  localeSelects.forEach((select) => {
+    select.value = getLocale();
+    select.setAttribute("aria-label", t("language.label"));
+  });
+}
 
 entryStartButton.addEventListener("click", showRoomActions);
 createRoomButton.addEventListener("click", createRoom);
@@ -206,7 +229,7 @@ async function createRoom() {
   const name = getPlayerName();
 
   if (!name) {
-    lobbyMessage.textContent = "請先輸入暱稱，再建立房間。";
+    lobbyMessage.textContent = t("message.needNameCreate");
     nameInput.focus();
     return;
   }
@@ -228,13 +251,13 @@ async function joinRoom() {
   const code = roomCodeInput.value.trim().toUpperCase();
 
   if (!name) {
-    lobbyMessage.textContent = "請先輸入暱稱，再加入房間。";
+    lobbyMessage.textContent = t("message.needNameJoin");
     nameInput.focus();
     return;
   }
 
   if (!code) {
-    lobbyMessage.textContent = "請輸入朋友分享給你的房號。";
+    lobbyMessage.textContent = t("message.needRoomCode");
     roomCodeInput.focus();
     return;
   }
@@ -328,17 +351,17 @@ async function copyRoomCode() {
   clearCopyRoomCodeFeedbackTimer();
   try {
     await navigator.clipboard.writeText(roomCode);
-    roomMessage.textContent = "房號已複製。";
-    roomCopyCodeButton.textContent = "已複製";
+    roomMessage.textContent = t("message.roomCopied");
+    roomCopyCodeButton.textContent = t("room.copied");
     copyFeedbackResetTimer = window.setTimeout(() => {
       copyFeedbackResetTimer = null;
       if (currentRoom?.code === roomCode) {
-        roomCopyCodeButton.textContent = "複製";
+        roomCopyCodeButton.textContent = t("room.copy");
       }
     }, copyFeedbackMs);
   } catch {
-    roomCopyCodeButton.textContent = "複製";
-    roomMessage.textContent = `無法自動複製，請手動複製房號：${roomCode}`;
+    roomCopyCodeButton.textContent = t("room.copy");
+    roomMessage.textContent = t("message.copyManual", { roomCode });
   }
 }
 
@@ -351,7 +374,7 @@ function clearCopyRoomCodeFeedbackTimer() {
 
 function resetCopyRoomCodeFeedback() {
   clearCopyRoomCodeFeedbackTimer();
-  roomCopyCodeButton.textContent = "複製";
+  roomCopyCodeButton.textContent = t("room.copy");
 }
 
 function toggleSettingsMenu() {
@@ -394,7 +417,7 @@ async function arrangeCards() {
 
   const cardInstanceIds = arrangement.map((card) => card?.instanceId || "");
   if (cardInstanceIds.length !== handSize || cardInstanceIds.some((id) => !id) || new Set(cardInstanceIds).size !== handSize) {
-    roomMessage.textContent = "請確認 6 張牌都已排好第 1～6 位。";
+    roomMessage.textContent = t("message.arrangeIncomplete");
     return;
   }
 
@@ -522,7 +545,11 @@ async function rollTurn() {
     renderOperationRoom(payload.room);
     if (payload.turn) {
       const playerName = getPlayerNameById(payload.turn.playerId, payload.room);
-      roomMessage.textContent = `${playerName} 擲出 ${payload.turn.diceResult}，請點擊位置 ${payload.turn.position} 的牌。`;
+      roomMessage.textContent = t("message.rollResult", {
+        name: playerName,
+        result: payload.turn.diceResult,
+        position: payload.turn.position
+      });
     }
   } catch (error) {
     stopRollAnimation();
@@ -582,6 +609,19 @@ function showRoomActions() {
   lobbyMessage.textContent = "";
   roomMessage.textContent = "";
   resetArrangement();
+}
+
+function renderStaticFallbackText() {
+  if (entryView.classList.contains("hidden")) {
+    return;
+  }
+
+  gamePhaseTitle.textContent = t("game.waitingStart");
+  turnIndicator.textContent = t("game.notStarted");
+  diceResult.textContent = t("game.waitingFirstRoll");
+  submitArrangeButton.textContent = t("arrange.submit");
+  resetArrangeButton.textContent = t("arrange.reset");
+  rollButton.textContent = t("turn.roll");
 }
 
 function renderRoom(room, requestId = nextRoomRequestId()) {
@@ -667,14 +707,14 @@ async function pollRoomOnce(code, { force = false } = {}) {
 
     const roomSignature = getRoomSignature(payload.room);
     if (roomSignature && roomSignature === renderedRoomSignature) {
-      if (roomMessage.textContent === "同步中斷，正在重試。") {
+      if (roomMessage.textContent === t("message.syncInterrupted")) {
         roomMessage.textContent = "";
       }
       return;
     }
 
     renderRoom(payload.room, requestId);
-    if (roomMessage.textContent === "同步中斷，正在重試。") {
+    if (roomMessage.textContent === t("message.syncInterrupted")) {
       roomMessage.textContent = "";
     }
   } catch (error) {
@@ -685,10 +725,10 @@ async function pollRoomOnce(code, { force = false } = {}) {
     if (error.status === 404) {
       history.replaceState(null, "", location.pathname);
       showEntry();
-      lobbyMessage.textContent = "房間已不存在，請重新建立或加入房間。";
+      lobbyMessage.textContent = t("message.roomGone");
       return;
     }
-    roomMessage.textContent = "同步中斷，正在重試。";
+    roomMessage.textContent = t("message.syncInterrupted");
   } finally {
     if (pollAbortController === controller) {
       pollAbortController = null;
@@ -741,7 +781,7 @@ async function restoreFromHash() {
     }
     history.replaceState(null, "", location.pathname);
     showEntry();
-    lobbyMessage.textContent = "找不到房間，請確認房號。";
+    lobbyMessage.textContent = t("message.roomNotFound");
   }
 }
 
@@ -811,7 +851,7 @@ function resetRollUi() {
   });
   rollButton.disabled = false;
   rollButton.className = "primary-button full-width";
-  rollButton.textContent = "擲骰";
+  rollButton.textContent = t("turn.roll");
 }
 
 function clearRollSettle() {
@@ -960,7 +1000,7 @@ async function useRevealedCard() {
       revealedCardModal = null;
     }
     cardUsePending = false;
-    roomMessage.textContent = "卡牌效果已套用。";
+    roomMessage.textContent = t("message.cardApplied");
     renderOperationRoom(payload.room);
   } catch (error) {
     cardUsePending = false;
@@ -992,12 +1032,12 @@ async function handleTargetCardClick(position) {
 
   const modal = getTargetModal(currentRoom?.game, position);
   if (!modal) {
-    roomMessage.textContent = "請點擊擲骰指定的位置牌。";
+    roomMessage.textContent = t("message.clickTarget");
     return;
   }
 
   if (acknowledgedRevealedCards.has(modal.key)) {
-    roomMessage.textContent = "這張牌已使用。";
+    roomMessage.textContent = t("message.cardAlreadyUsed");
     return;
   }
 

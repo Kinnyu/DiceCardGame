@@ -1,4 +1,5 @@
 import { renderGame } from "./game-render.js";
+import { t } from "./i18n.js";
 
 export function renderRoom(room, context) {
   const { elements, playerId, pendingAction, requestId } = context;
@@ -11,9 +12,9 @@ export function renderRoom(room, context) {
   elements.roomCodeDisplay.closest(".room-code-card")?.setAttribute("data-player-count", String(room.players.length));
   elements.roomCodeDisplay.textContent = room.code;
   elements.settingsRoomCode.textContent = room.code;
-  elements.settingsPlayerCount.textContent = `${room.players.length} 人`;
+  elements.settingsPlayerCount.textContent = t("room.playerCount", { count: room.players.length });
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";
-  elements.startGameButton.textContent = room.status === "playing" ? "遊戲進行中" : "開始遊戲";
+  elements.startGameButton.textContent = room.status === "playing" ? t("room.gameInProgress") : t("room.startGame");
   elements.startGameButton.classList.toggle("hidden", room.hostId !== playerId || room.status !== "waiting");
   elements.readyLeaveRoomButton.disabled = Boolean(pendingAction);
   renderPlayers(room, context);
@@ -40,7 +41,7 @@ export function renderPlayers(room, context) {
 
       const name = document.createElement("span");
       name.className = "player-name";
-      name.textContent = player.id === context.playerId ? `${player.name}（你）` : player.name;
+      name.textContent = player.id === context.playerId ? `${player.name}${t("room.youSuffix")}` : player.name;
       item.append(name);
 
       const badge = document.createElement("span");
@@ -56,24 +57,24 @@ export function renderPlayers(room, context) {
 export function getPlayerNameById(id, room) {
   const gamePlayer = room?.game?.players?.find((player) => player.id === id);
   const roomPlayer = room?.players?.find((player) => player.id === id);
-  return gamePlayer?.name || roomPlayer?.name || "未知玩家";
+  return gamePlayer?.name || roomPlayer?.name || t("room.unknownPlayer");
 }
 
 export function getPhaseTitle(phase) {
   const labels = {
-    drafting: "選牌階段",
-    arranging: "排牌階段",
-    playing: "回合階段",
-    finished: "結果階段"
+    drafting: t("phase.drafting"),
+    arranging: t("phase.arranging"),
+    playing: t("phase.playing"),
+    finished: t("phase.finished")
   };
-  return labels[phase] || "等待開始";
+  return labels[phase] || t("game.waitingStart");
 }
 
 function getPlayerStatus(room, player, selfId) {
   if (player.isHost || player.id === selfId) {
-    return "已準備";
+    return t("room.ready");
   }
-  return "等待中";
+  return t("room.waiting");
 }
 
 function getInitials(name) {

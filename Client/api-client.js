@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 export async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -6,7 +8,7 @@ export async function requestJson(url, options = {}) {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = new Error(payload.error || "操作失敗，請稍後再試。");
+    const error = new Error(payload.error || t("message.genericFailure"));
     error.status = response.status;
     throw error;
   }

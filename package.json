@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node Server/server.js",
     "dev": "node Server/server.js",
-    "check": "node --check lib/rooms.js && node --check lib/stores.js && node --check lib/room-api.js && node --check lib/cards.js && node --check lib/dice.js && node --check lib/game-rules.js && node --check lib/public-view.js && node --check Server/server.js && node --check api/rooms.js && node --check Client/api-client.js && node --check Client/app.js && node --check Client/game-render.js && node --check Client/room-render.js && node --check scripts/smoke-test.js && node --check scripts/api-handler-test.js && node --check scripts/game-rules-test.js",
+    "check": "node --check lib/rooms.js && node --check lib/stores.js && node --check lib/room-api.js && node --check lib/cards.js && node --check lib/dice.js && node --check lib/game-rules.js && node --check lib/public-view.js && node --check Server/server.js && node --check api/rooms.js && node --check Client/api-client.js && node --check Client/i18n.js && node --check Client/app.js && node --check Client/game-render.js && node --check Client/room-render.js && node --check scripts/smoke-test.js && node --check scripts/api-handler-test.js && node --check scripts/game-rules-test.js",
     "test:smoke": "node scripts/smoke-test.js",
     "test:api": "node scripts/api-handler-test.js",
     "test:game": "node scripts/game-rules-test.js"
