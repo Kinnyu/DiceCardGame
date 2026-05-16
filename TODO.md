@@ -363,3 +363,136 @@
 - [x] 建議先閱讀 `Client/styles.css`，新增語言切換 UI 樣式並確認手機寬度不擠壓主操作。
 - [x] 建議建立小型 i18n helper 或字典檔，避免把翻譯散落在各 render 函式內。
 - [x] 驗收標準：主頁可切換中文、日語、英語；切換後目前畫面文字立即更新；重新整理後保留使用者選擇；`npm run check` 通過。
+
+## 新規則導入待辦（2026-05-16）
+> 規則來源：`docs/game-rules.md`
+
+### 13. 新規則差異盤點與資料模型設計
+負責：Game Rules Migration Planning Agent
+
+- [x] 依照 `docs/game-rules.md`，整理目前實作與新規則差異：13 張牌池、補牌牌庫、棄牌區、傳牌階段、雙骰、最近可翻牌、輪數、終盤、特殊牌、炸彈與封印狀態。
+- [x] 建議先閱讀 `lib/game-state.js`、`lib/game-rules.js`、`lib/cards.js`、`lib/public-view.js`、`lib/room-api.js`。
+- [x] 設計新的 game state shape：`totalRounds`、`currentRound`、每輪已行動玩家、兩顆骰子結果、目標位置、補牌牌庫、棄牌區、場上牌狀態、封印倒數、炸彈倒數、全局/玩家狀態效果。
+- [x] 明確定義哪些狀態需要公開給本人、其他玩家與觀戰視角，避免未翻開牌內容外洩。
+- [x] 驗收標準：產出可供後續實作用的資料模型與 migration notes，並列出需要調整的 API / UI / 測試範圍；規劃內容併入本 TODO 與 `docs/game-rules.md`。
+
+### 14. 建立完整 13 張牌池與補牌牌庫來源
+負責：Card Pool and Deck Agent
+
+- [ ] 將目前簡化的 +1 / -1 牌池調整為每位玩家完整 13 張牌：+1、+2、+3、-1、-2、-3、正負反轉、補兩張牌、封印、交換牌、清除牌、偷分牌、炸彈牌。
+- [ ] 建議先閱讀 `lib/cards.js`、`lib/game-rules.js`、`scripts/game-rules-test.js`。
+- [ ] 選牌階段需從 13 張中選 6 張，剩下 7 張成為該組牌的補牌牌庫。
+- [ ] 傳牌後，接收玩家取得場上 6 張牌與同一組剩餘 7 張補牌牌庫，不能產生第 14 張牌。
+- [ ] 每組 13 張牌需保留來源追蹤，例如 `sourceSetId` / `sourcePlayerId`，避免傳牌與補牌時混到其他玩家牌組。
+- [ ] 驗收標準：每位玩家開局可看到 13 張可選牌；選 6 張後剩餘 7 張正確成為補牌牌庫；測試覆蓋牌數與 instanceId 唯一性。
+
+### 15. 開局設定總輪數與等待階段 UI
+負責：Round Setup UI Agent
+
+- [ ] 在開始遊戲前新增總輪數選擇：15 輪或 20 輪。
+- [ ] 建議先閱讀 `Client/index.html`、`Client/app.js`、`Client/room-render.js`、`lib/room-api.js`、`lib/rooms.js`。
+- [ ] 房主或開始者需能在等待/準備畫面設定本場總輪數；預設值需明確。
+- [ ] 後端建立 game state 時保存 `totalRounds`，前端在遊戲中顯示目前輪數 / 總輪數。
+- [ ] 後端需保存每輪已行動玩家，例如 `actedPlayerIdsThisRound`，供輪數推進、淘汰跳過與終盤判定使用。
+- [ ] 驗收標準：開始前可選 15 或 20 輪；進入遊戲後狀態中有正確總輪數；重新整理與多人同步不遺失設定。
+
+### 16. 選牌、排牌、傳牌流程調整為新規則
+負責：Draft Arrange Pass Flow Agent
+
+- [ ] 選牌階段由 10 張候選牌改為 13 張完整牌池，仍選 6 張上場。
+- [ ] 排牌階段維持 1 到 6 號位置，但需清楚提示「排好後傳給右邊玩家」。
+- [ ] 新增或明確化傳牌階段：所有玩家送出排列後，場上 6 張牌與剩餘補牌牌庫一起傳給右邊玩家。
+- [ ] 建議先閱讀 `lib/game-rules.js` 的 `selectDraftCard(...)`、`arrangePlayerCards(...)`、`passArrangedCardsRight(...)`，以及 `Client/game-render.js` 的 draft / arrange UI。
+- [ ] 驗收標準：玩家只能看到自己的 13 張牌與已選 6 張；傳牌後只收到右邊玩家傳來的場上牌與補牌牌庫；未翻開牌內容不外洩。
+
+### 17. 雙骰擲骰、目標位置與最近可翻牌規則
+負責：Two Dice Targeting Agent
+
+- [ ] 將單顆骰改為兩顆六面骰。
+- [ ] 目標位置計算為 `floor((骰子 A + 骰子 B) / 2)`。
+- [ ] 若目標位置不可翻，依照最近可翻牌規則尋找可翻牌位置；左右距離相同時選數字較小的位置。
+- [ ] 若完全沒有可翻牌位置，本回合需記錄 `noAvailableCard` / skipped 狀態並正常結束與換手。
+- [ ] 建議先閱讀 `lib/dice.js`、`lib/game-rules.js` 的 `recordDiceRoll(...)`、`revealCardAtPosition(...)`、`validatePlayableTurn(...)`，以及 `Client/game-render.js` 的骰子與目標提示。
+- [ ] 驗收標準：API 回傳兩顆骰子、原始目標位置、實際翻開位置；所有不可翻牌情境都有測試；前端能顯示雙骰結果與實際目標。
+
+### 18. 遊玩階段新增「擲骰翻牌 / 補牌」行動選擇
+負責：Turn Action Choice Agent
+
+- [ ] 玩家回合開始時可選擇擲骰翻牌或補牌。
+- [ ] 補牌需從自己的補牌牌庫抽 1 張，玩家可查看後放到自己的空格或已使用格；補牌後回合結束，不擲骰、不翻牌。
+- [ ] 建議先閱讀 `Client/game-render.js` 的 turn UI、`Client/app.js` 的 roll/reveal/use 流程、`lib/room-api.js` API actions、`lib/game-rules.js` 回合推進。
+- [ ] 新增補牌 API 與前端互動流程，包含抽牌、選位置、確認放置、取消/錯誤處理。
+- [ ] 抽到補牌但尚未放置時，牌面內容只能給本人看；其他玩家只能看到補牌中狀態或待放置張數。
+- [ ] 驗收標準：只有輪到自己的玩家可補牌；沒有補牌牌庫或沒有空格/已使用格時不能補牌；補牌後正確換下一位玩家。
+
+### 19. 分數結算、double 規則、終盤規則與勝負判定
+負責：Scoring Round Resolution Agent
+
+- [ ] 分數牌結算需依序套用 double 規則、終盤規則、分數變動、勝利/淘汰判定。
+- [ ] 奇數 double：分數效果除以 2、向 0 取整、至少保留 1 點效果；偶數 double：分數效果乘以 2。
+- [ ] 最後 3 輪為終盤，加分牌額外 +2、扣分牌額外 -2；計算順序為先 double 再終盤。
+- [ ] 新增 20 分立即勝利、0 分以下淘汰、總輪數結束最高分勝利、平手判定。
+- [ ] 新增所有玩家都淘汰時的結算規則：依最後被淘汰前分數最高者判定，無法判定時視為平手。
+- [ ] 輪數推進需依 `actedPlayerIdsThisRound` 判定所有未淘汰玩家是否都已行動，淘汰玩家不再計入後續輪次。
+- [ ] 建議先閱讀 `lib/game-rules.js` 的 `applyCardEffect(...)`、`updatePlayerScore(...)`、`checkGameEnd(...)`、`determineWinnerIds(...)`。
+- [ ] 驗收標準：所有 double / 終盤範例都有測試；淘汰玩家不再行動；輪數結束與平手判定正確。
+
+### 20. 場上牌位、棄牌區、已使用格與公開視角調整
+負責：Card Zones Public View Agent
+
+- [ ] 新增每位玩家棄牌區，並調整場上牌位狀態：面朝下、已翻開、炸彈、空格、已使用格、封印中。
+- [ ] 一般牌效果結算後進入目前所在玩家的棄牌區；炸彈例外，倒數結束或被清除後才進棄牌區。
+- [ ] 棄牌區可查看，但不能被交換、封印、清除、補牌覆蓋或再次使用。
+- [ ] 建議建立明確的場上牌位資料結構，例如 `boardSlots`，避免只靠 `receivedCards` / `usedPositions` 推導空格、已使用格、封印與炸彈狀態。
+- [ ] Public view 中補牌牌庫只公開張數，不公開內容；棄牌區內容公開，但不公開不必要的內部 `instanceId`。
+- [ ] Public view 中封印狀態與炸彈倒數應公開；未翻開牌仍不得外洩 `id`、`name`、`type`、`value`、`description` 等牌面內容。
+- [ ] 建議先閱讀 `lib/game-state.js`、`lib/public-view.js`、`Client/game-render.js` 的 board / card detail UI。
+- [ ] 驗收標準：本人與其他玩家視角不外洩未翻開牌；棄牌區內容可查看；已使用位置可作為補牌位置。
+
+### 21. 特殊牌第一批：正負反轉、補兩張牌、偷分牌
+負責：Special Cards Basic Effects Agent
+
+- [ ] 實作正負反轉：持續到發動者下一個回合開始前，所有分數牌加扣反轉。
+- [ ] 實作補兩張牌：從自己補牌牌庫抽最多 2 張，放入自己的空格或已使用格。
+- [ ] 實作偷分牌：指定未淘汰且非自己的玩家，發動者 +1、目標 -1；不受 double / 終盤影響，但會觸發勝利/淘汰判定。
+- [ ] 建議先閱讀 `lib/game-rules.js`、`lib/room-api.js`、`Client/game-render.js` 的 card modal / use effect UI。
+- [ ] 驗收標準：三種特殊牌都有可操作 UI、API 驗證與 game rules 測試；目標限制正確。
+
+### 22. 特殊牌第二批：封印、交換牌、清除牌
+負責：Special Cards Targeting Effects Agent
+
+- [ ] 實作封印：指定任一玩家場上 1 張牌，封印 2 回合；不能被翻開；倒數跟著牌走。
+- [ ] 實作交換牌：任選場上兩張牌交換位置，支援自己/他人/兩名他人之間交換；狀態跟著牌走。
+- [ ] 實作清除牌：選擇自己場上 1 張牌直接清除，不觸發效果，進入自己的棄牌區。
+- [ ] 建議先閱讀 `lib/game-rules.js`、`lib/public-view.js`、`Client/game-render.js` 的場上牌互動與 modal。
+- [ ] 驗收標準：合法/非法目標都有測試；封印、交換、清除不影響棄牌區；交換後狀態仍跟著牌。
+
+### 23. 炸彈牌、倒數與回合結束處理
+負責：Bomb Countdown Agent
+
+- [ ] 實作炸彈牌：翻開後留在場上，初始倒數 3 回合，不立即進棄牌區。
+- [ ] 每位玩家回合結束時，未封印炸彈倒數 -1；倒數為 0 時爆炸，炸彈目前所在玩家扣 5 分並進該玩家棄牌區。
+- [ ] 封印炸彈時倒數暫停，封印解除後從剩餘倒數繼續。
+- [ ] 若多張炸彈同時爆炸，依固定順序結算。
+- [ ] 建議先閱讀 `lib/game-rules.js` 的回合結束與勝負判定，以及 `Client/game-render.js` 的場上牌狀態顯示。
+- [ ] 驗收標準：炸彈扣分不受 double / 終盤影響；可被交換、清除、封印；爆炸可造成淘汰；測試覆蓋倒數順序。
+
+### 24. API 與前端互動整合：特殊牌目標選擇、補牌、棄牌區
+負責：New Rules UI Integration Agent
+
+- [ ] 新增或調整 API actions：補牌抽牌、補牌放置、特殊牌目標選擇、交換兩牌、查看棄牌區。
+- [ ] 擲骰 API 回傳需包含 `diceA`、`diceB`、`rawTargetPosition`、`resolvedPosition`、`noAvailableCard` 等欄位，讓前端能清楚顯示原始目標與實際結果。
+- [ ] 特殊牌 API 需能表達需要目標或非法目標狀態，例如 `targetRequired` / `invalidSpecialTarget`，避免前端只能用通用錯誤處理。
+- [ ] 前端需支援：回合行動選擇、雙骰顯示、最近可翻牌提示、補牌流程、特殊牌目標選擇、封印/炸彈狀態、棄牌區查看。
+- [ ] 建議先閱讀 `Client/app.js`、`Client/api-client.js`、`Client/game-render.js`、`Client/styles.css`、`lib/room-api.js`。
+- [ ] 確認手機版不因新增按鈕/面板造成重疊或操作困難。
+- [ ] 驗收標準：主要新規則可透過 UI 完整操作；錯誤訊息清楚；`npm run check` 通過。
+
+### 25. 新規則測試與文件同步
+負責：New Rules QA and Docs Agent
+
+- [ ] 補齊 `scripts/game-rules-test.js`：13 張牌池、選 6 留 7、傳牌、雙骰、最近可翻牌、補牌、棄牌區、double、終盤、淘汰、輪數結束、特殊牌。
+- [ ] 補齊 `scripts/api-handler-test.js`：新 API actions 與非法操作。
+- [ ] 補齊 smoke test：多人完整流程從建房到結束。
+- [ ] 更新 `README.md`，同步新規則與操作流程；必要時補充 `docs/game-rules.md` 中實作限制或 UI 說明。
+- [ ] 驗收標準：`npm run check`、`npm run test:game`、`npm run test:api`、`npm run test:smoke` 通過；文件與實際行為一致。

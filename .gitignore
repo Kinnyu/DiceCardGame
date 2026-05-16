@@ -4,6 +4,11 @@ node_modules/
 Thumbs.db
 dev-server*.log
 mobile-check-artifacts/
+.tmp-mobile-chrome/
+.tmp-*-chrome/
+.tmp-*/
+Bug/
+docs/visual-reference/
 scripts/deploy-production.ps1
 
 .vercel

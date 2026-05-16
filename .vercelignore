@@ -1,2 +1,7 @@
 mobile-check-artifacts/
+.tmp-mobile-chrome/
+.tmp-*-chrome/
+.tmp-*/
+Bug/
+docs/visual-reference/
 dev-server*.log

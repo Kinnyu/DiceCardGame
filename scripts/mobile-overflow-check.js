@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 
-const baseUrl = "http://localhost:3000";
+const baseUrl = (process.env.MOBILE_CHECK_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const cdpPort = 9333 + Math.floor(Math.random() * 400);
 const outDir = path.resolve("mobile-check-artifacts");
@@ -381,7 +381,7 @@ async function waitForServer() {
       await delay(150);
     }
   }
-  throw new Error("local server not reachable");
+  throw new Error(`server not reachable: ${baseUrl}`);
 }
 
 function waitPort(port) {
