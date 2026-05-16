@@ -399,11 +399,11 @@
 ### 16. 選牌、排牌、傳牌流程調整為新規則
 負責：Draft Arrange Pass Flow Agent
 
-- [ ] 選牌階段由 10 張候選牌改為 13 張完整牌池，仍選 6 張上場。
-- [ ] 排牌階段維持 1 到 6 號位置，但需清楚提示「排好後傳給右邊玩家」。
-- [ ] 新增或明確化傳牌階段：所有玩家送出排列後，場上 6 張牌與剩餘補牌牌庫一起傳給右邊玩家。
-- [ ] 建議先閱讀 `lib/game-rules.js` 的 `selectDraftCard(...)`、`arrangePlayerCards(...)`、`passArrangedCardsRight(...)`，以及 `Client/game-render.js` 的 draft / arrange UI。
-- [ ] 驗收標準：玩家只能看到自己的 13 張牌與已選 6 張；傳牌後只收到右邊玩家傳來的場上牌與補牌牌庫；未翻開牌內容不外洩。
+- [x] 選牌階段由 10 張候選牌改為 13 張完整牌池，仍選 6 張上場。
+- [x] 排牌階段維持 1 到 6 號位置，但需清楚提示「排好後傳給右邊玩家」。
+- [x] 新增或明確化傳牌階段：所有玩家送出排列後，場上 6 張牌與剩餘補牌牌庫一起傳給右邊玩家。
+- [x] 建議先閱讀 `lib/game-rules.js` 的 `selectDraftCard(...)`、`arrangePlayerCards(...)`、`passArrangedCardsRight(...)`，以及 `Client/game-render.js` 的 draft / arrange UI。
+- [x] 驗收標準：玩家只能看到自己的 13 張牌與已選 6 張；傳牌後只收到右邊玩家傳來的場上牌與補牌牌庫；未翻開牌內容不外洩。
 
 ### 17. 雙骰擲骰、目標位置與最近可翻牌規則
 負責：Two Dice Targeting Agent

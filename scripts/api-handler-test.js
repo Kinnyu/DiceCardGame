@@ -59,8 +59,8 @@ async function testMemoryFallback() {
   assertPublicGameShape(started.payload.room.game, "started room should include public game state");
   assert(started.payload.room.game.phase === "drafting", "started public game should enter drafting phase");
   assert(
-    started.payload.room.game.players.every((player) => player.handCount === HAND_SIZE && !Object.hasOwn(player, "hand")),
-    "started public game should expose hand counts but not hands"
+    started.payload.room.game.players.every((player) => player.handCount === 0 && !Object.hasOwn(player, "hand")),
+    "started public game should not expose pre-draft hands"
   );
   assertNoSecretState(started.payload, "start response should not expose secret state without a viewer");
 
@@ -106,13 +106,13 @@ async function testStartCreatesPrivateGameStateInStore() {
     storedRoom.game.players.every(
       (player) =>
         player.draftCards.length === DRAFT_CARD_COUNT &&
-        player.hand.length === HAND_SIZE &&
+        player.hand.length === 0 &&
         player.drawDeck.length === 0 &&
         player.arrangedCards.length === 0 &&
         player.receivedCards.length === 0 &&
         player.usedPositions.length === 0
     ),
-    "stored game players should have initial hand and arrangement fields"
+    "stored game players should start with draft cards but no preselected hand"
   );
   assert(
     storedRoom.game.players.every((player) => {
@@ -122,7 +122,7 @@ async function testStartCreatesPrivateGameStateInStore() {
         values.filter((value) => value < 0).length === DRAFT_MINUS_CARD_COUNT
       );
     }),
-    "stored game players should have five plus and five minus draft cards"
+    "stored game players should have three plus and three minus draft cards"
   );
   assert(
     storedRoom.game.players.every((player) => player.draftCards.every((card) => hasStableDraftCardShape(card))),
@@ -243,7 +243,7 @@ async function testDraftCardApiSelectsSixOwnChoices() {
   const twoPublic = oneView.payload.room.game.players.find((player) => player.id === "two");
   const oneDraftIds = onePublic.draftCards.map((card) => card.instanceId);
 
-  assert(oneDraftIds.length === DRAFT_CARD_COUNT, "player should see ten own draft choices before drafting");
+  assert(oneDraftIds.length === DRAFT_CARD_COUNT, "player should see thirteen own draft choices before drafting");
   assertDraftCards(onePublic.draftCards, "player own draft choices");
   assert(!Object.hasOwn(twoPublic, "draftCards"), "draft GET should not expose another player's draft choices");
   assert(!Object.hasOwn(twoPublic, "selectedDraftCards"), "draft GET should not expose another player's selections");
@@ -387,9 +387,9 @@ async function testGameFlowApi() {
   assert(onePublic.draftCardCount === DRAFT_CARD_COUNT, "current player should see their own draft card count");
   assert(twoPublic.draftCardCount === DRAFT_CARD_COUNT, "current player should see another player's draft card count");
   assert(!Object.hasOwn(twoPublic, "draftCards"), "current player should not see another player's draft cards");
-  assert(onePublic.hand.length === HAND_SIZE, "current player should see their own hand");
+  assert(!Object.hasOwn(onePublic, "hand"), "current player should not see a pre-draft hand");
   assert(!Object.hasOwn(twoPublic, "hand"), "current player should not see another player's hand");
-  assertNoSecretState(oneView.payload, "player-scoped GET should only expose viewer hand");
+  assertNoSecretState(oneView.payload, "player-scoped GET should only expose viewer draft cards");
 
   const oneDraftIds = onePublic.draftCards.map((card) => card.instanceId);
   const arrangeDuringDrafting = await callController(store, "POST", `${code}/arrange`, {
@@ -695,13 +695,13 @@ async function testViewerSpecificPublicViews() {
   const oneInTwoView = twoView.payload.room.game.players.find((player) => player.id === "one");
   const twoInTwoView = twoView.payload.room.game.players.find((player) => player.id === "two");
 
-  assert(oneInOneView.hand.length === HAND_SIZE, "A should see A hand");
+  assert(!Object.hasOwn(oneInOneView, "hand"), "A should not see a pre-draft hand");
   assert(oneInOneView.draftCards.length === DRAFT_CARD_COUNT, "A should see A draft cards");
   assertDraftCards(oneInOneView.draftCards, "A own public draft cards");
   assert(!Object.hasOwn(twoInOneView, "hand"), "A should not see B hand");
   assert(!Object.hasOwn(twoInOneView, "draftCards"), "A should not see B draft cards");
   assert(!Object.hasOwn(twoInOneView, "selectedDraftCards"), "A should not see B selected draft cards");
-  assert(twoInTwoView.hand.length === HAND_SIZE, "B should see B hand");
+  assert(!Object.hasOwn(twoInTwoView, "hand"), "B should not see a pre-draft hand");
   assert(twoInTwoView.draftCards.length === DRAFT_CARD_COUNT, "B should see B draft cards");
   assert(!Object.hasOwn(oneInTwoView, "hand"), "B should not see A hand");
   assert(!Object.hasOwn(oneInTwoView, "draftCards"), "B should not see A draft cards");
@@ -737,6 +737,9 @@ async function testViewerSpecificPublicViews() {
   const hiddenCard = passedOnePlayer.receivedCards[0];
   assert(passedOnePlayer.drawDeckCount === DRAFT_CARD_COUNT - HAND_SIZE, "receiver should see draw deck count after pass");
   assert(!Object.hasOwn(passedOnePlayer, "drawDeck"), "public view should not expose draw deck contents after pass");
+  assert(!Object.hasOwn(passedOnePlayer, "draftCards"), "playing view should not expose viewer draft cards after pass");
+  assert(!Object.hasOwn(passedOnePlayer, "selectedDraftCards"), "playing view should not expose viewer selected draft cards after pass");
+  assert(!Object.hasOwn(passedOnePlayer, "hand"), "playing view should not expose viewer hand after pass");
   assertHiddenCardSafe(hiddenCard, "unrevealed received card after pass");
 
   const turn = await callController(store, "POST", `${code}/turn`, { playerId: "one" }, () => 0);
@@ -768,14 +771,14 @@ async function testHandlerGetPassesPlayerIdQuery() {
   const onePublic = oneView.payload.room.game.players.find((player) => player.id === "one");
   const twoPublic = oneView.payload.room.game.players.find((player) => player.id === "two");
 
-  assert(onePublic.hand.length === HAND_SIZE, "handler GET should expose current player's hand");
+  assert(!Object.hasOwn(onePublic, "hand"), "handler GET should not expose a pre-draft hand");
   assert(!Object.hasOwn(twoPublic, "hand"), "handler GET should not expose another player's hand");
 
   const twoView = await callHandler("GET", code, {}, { playerId: "two" });
   const twoOwnPublic = twoView.payload.room.game.players.find((player) => player.id === "two");
   const oneOtherPublic = twoView.payload.room.game.players.find((player) => player.id === "one");
 
-  assert(twoOwnPublic.hand.length === HAND_SIZE, "handler GET should expose B player's own hand");
+  assert(!Object.hasOwn(twoOwnPublic, "hand"), "handler GET should not expose B player's pre-draft hand");
   assert(twoOwnPublic.draftCards.length === DRAFT_CARD_COUNT, "handler GET should expose B player's own draft cards");
   assertDraftCards(twoOwnPublic.draftCards, "handler B own draft cards");
   assert(!Object.hasOwn(oneOtherPublic, "hand"), "handler GET should hide A player's hand from B");
@@ -1177,7 +1180,7 @@ function assertPublicGameShape(game, message, expectedPhase = "drafting") {
   assert(player.deckCount === 0, `${message}: deck count`);
   assert(player.draftCardCount === DRAFT_CARD_COUNT, `${message}: public draft card count`);
   assert(player.drawDeckCount === 0, `${message}: public draw deck count`);
-  assert(player.handCount === HAND_SIZE, `${message}: public hand count`);
+  assert(player.handCount === 0, `${message}: public hand count`);
   assert(!Object.hasOwn(player, "draftCards"), `${message}: public view should not expose draft cards without viewer`);
   assert(!Object.hasOwn(player, "selectedDraftCards"), `${message}: public view should not expose selected draft cards without viewer`);
   assert(!Object.hasOwn(player, "drawDeck"), `${message}: public view should not expose draw deck contents`);
@@ -1207,9 +1210,9 @@ function assertAllDraftInstanceIdsUnique(room, message) {
 }
 
 function assertDraftCards(cards, message) {
-  assert(cards.length === DRAFT_CARD_COUNT, `${message}: should contain ten cards`);
-  assert(cards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT, `${message}: should contain five plus cards`);
-  assert(cards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT, `${message}: should contain five minus cards`);
+  assert(cards.length === DRAFT_CARD_COUNT, `${message}: should contain thirteen cards`);
+  assert(cards.filter((card) => card.value > 0).length === DRAFT_PLUS_CARD_COUNT, `${message}: should contain three plus cards`);
+  assert(cards.filter((card) => card.value < 0).length === DRAFT_MINUS_CARD_COUNT, `${message}: should contain three minus cards`);
   assert(new Set(cards.map((card) => card.instanceId)).size === DRAFT_CARD_COUNT, `${message}: instance ids should be unique`);
   assert(cards.every((card) => hasStableDraftCardShape(card)), `${message}: should include required card fields`);
 }

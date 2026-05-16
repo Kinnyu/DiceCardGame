@@ -208,23 +208,15 @@ function renderDraftCard(card, options) {
   const cardId = card.instanceId || card.id || "";
   const isRecentlySelected = Boolean(isSelected && cardId && cardId === context.recentDraftCardId);
   const button = document.createElement("button");
-  button.className = `draft-card${isSelected ? ` selected revealed ${getCardVisualClass(card)}` : ""}${isPendingSelection ? " pending-selection" : ""}${isRecentlySelected ? " just-selected" : ""}`;
+  button.className = `draft-card revealed ${getCardVisualClass(card)}${isSelected ? " selected" : ""}${isPendingSelection ? " pending-selection" : ""}${isRecentlySelected ? " just-selected" : ""}`;
   button.type = "button";
   button.disabled = disabled || isSelected;
   button.setAttribute("aria-pressed", String(isSelected));
   button.addEventListener("click", () => context.callbacks.draftCard(card.instanceId));
 
-  if (!isSelected) {
-    const back = document.createElement("span");
-    back.className = "draft-card-back";
-    back.textContent = `${index + 1}`;
-    button.append(back);
-    return button;
-  }
-
   const label = document.createElement("span");
   label.className = "card-position";
-  label.textContent = t("draft.selected");
+  label.textContent = isSelected ? t("draft.selected") : String(index + 1);
   button.append(label);
 
   const icon = document.createElement("span");

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { DRAFT_CARD_COUNT, HAND_SIZE } from "../lib/cards.js";
 
 const port = await findAvailablePort();
 const baseUrl = `http://localhost:${port}`;
@@ -37,14 +38,19 @@ try {
   assertPublicViewDoesNotLeakSecrets(started.room.game, "unscoped start response");
 
   const draftView = (await get(`/api/rooms/${code}?playerId=player-one`)).payload;
-  assertViewerOnlySeesOwnDraftAndHand(draftView.room.game, "player-one");
+  assertViewerOnlySeesOwnDraft(draftView.room.game, "player-one");
 
   const playerOneDrafted = await draftSixCards(code, "player-one");
   assert(playerOneDrafted.room.game.phase === "drafting", "game should wait for second player draft");
+  const playerOneAfterDraft = playerOneDrafted.room.game.players.find((player) => player.id === "player-one");
+  assert(
+    playerOneAfterDraft.drawDeckCount === DRAFT_CARD_COUNT - HAND_SIZE,
+    "first player should expose seven-card draw deck count after drafting"
+  );
 
   const extraDraftCardId = draftView.room.game.players
     .find((player) => player.id === "player-one")
-    .draftCards.at(6).instanceId;
+    .draftCards.at(HAND_SIZE).instanceId;
   const extraDraft = await post(`/api/rooms/${code}/draft`, {
     playerId: "player-one",
     cardInstanceId: extraDraftCardId
@@ -54,10 +60,15 @@ try {
 
   const playerTwoDrafted = await draftSixCards(code, "player-two");
   assert(playerTwoDrafted.room.game.phase === "arranging", "both drafts should enter arranging");
+  const playerTwoAfterDraft = playerTwoDrafted.room.game.players.find((player) => player.id === "player-two");
+  assert(
+    playerTwoAfterDraft.drawDeckCount === DRAFT_CARD_COUNT - HAND_SIZE,
+    "second player should expose seven-card draw deck count after drafting"
+  );
 
   const playerOneView = (await get(`/api/rooms/${code}?playerId=player-one`)).payload;
   const playerOneHand = playerOneView.room.game.players.find((player) => player.id === "player-one").hand;
-  assert(playerOneHand.length === 6, "first player should see their hand before arranging");
+  assert(playerOneHand.length === HAND_SIZE, "first player should see their selected hand before arranging");
 
   const playerOneArranged = await post(`/api/rooms/${code}/arrange`, {
     playerId: "player-one",
@@ -75,7 +86,7 @@ try {
 
   const playerTwoView = (await get(`/api/rooms/${code}?playerId=player-two`)).payload;
   const playerTwoHand = playerTwoView.room.game.players.find((player) => player.id === "player-two").hand;
-  assert(playerTwoHand.length === 6, "second player should see their hand before arranging");
+  assert(playerTwoHand.length === HAND_SIZE, "second player should see their selected hand before arranging");
 
   const playerTwoArranged = await post(`/api/rooms/${code}/arrange`, {
     playerId: "player-two",
@@ -84,6 +95,7 @@ try {
   assert(playerTwoArranged.status === 200, "second player arrange should return 200");
   assert(playerTwoArranged.payload.room.game.phase === "playing", "both arrangements should start turns");
   assertViewerCannotSeeOtherPlayerHiddenCards(playerTwoArranged.payload.room.game, "player-two");
+  assertPlayingViewKeepsPrivateZonesHidden(playerTwoArranged.payload.room.game, "player-two");
 
   const turnPlayerId = playerTwoArranged.payload.room.game.turnPlayerId;
   const nonTurnPlayerId = turnPlayerId === "player-one" ? "player-two" : "player-one";
@@ -102,7 +114,7 @@ try {
   assert(roll.payload.turn.status === "pending", "roll response should report pending status");
   assert(roll.payload.room.game.dice.lastRoll?.playerId === turnPlayerId, "roll response should include last roll");
   assert(roll.payload.room.game.dice.lastRoll?.status === "pending", "public last roll should be pending");
-  assert(roll.payload.turn.position >= 1 && roll.payload.turn.position <= 6, "roll should choose a target card position");
+  assert(roll.payload.turn.position >= 1 && roll.payload.turn.position <= HAND_SIZE, "roll should choose a target card position");
 
   const targetPosition = roll.payload.turn.position;
   const wrongPosition = targetPosition === 1 ? 2 : 1;
@@ -116,6 +128,7 @@ try {
   assert(roll.payload.room.game.turnPlayerId === turnPlayerId, "roll should not advance turn player");
   assertHiddenCardIsSafe(hiddenTargetCard, "rolled target card before reveal");
   assertViewerCannotSeeOtherPlayerHiddenCards(roll.payload.room.game, turnPlayerId);
+  assertPlayingViewKeepsPrivateZonesHidden(roll.payload.room.game, turnPlayerId);
 
   const rejectedRevealByOther = await post(`/api/rooms/${code}/reveal`, {
     playerId: nonTurnPlayerId,
@@ -163,6 +176,7 @@ try {
   );
   assert(reveal.payload.room.game.turnPlayerId === turnPlayerId, "reveal should not advance turn player");
   assertViewerCannotSeeOtherPlayerHiddenCards(reveal.payload.room.game, turnPlayerId);
+  assertPlayingViewKeepsPrivateZonesHidden(reveal.payload.room.game, turnPlayerId);
 
   const use = await post(`/api/rooms/${code}/use`, {
     playerId: turnPlayerId,
@@ -180,6 +194,7 @@ try {
   );
   assert(use.payload.room.game.turnPlayerId === nonTurnPlayerId, "use should advance turn player");
   assertViewerCannotSeeOtherPlayerHiddenCards(use.payload.room.game, turnPlayerId);
+  assertPlayingViewKeepsPrivateZonesHidden(use.payload.room.game, turnPlayerId);
 
   const usedAgain = await post(`/api/rooms/${code}/use`, {
     playerId: turnPlayerId,
@@ -246,10 +261,12 @@ async function post(path, body) {
 async function draftSixCards(code, playerId) {
   const view = (await get(`/api/rooms/${code}?playerId=${encodeURIComponent(playerId)}`)).payload;
   const player = view.room.game.players.find((candidate) => candidate.id === playerId);
-  assert(player.draftCards.length === 10, `${playerId} should see ten draft cards`);
+  assert(player.draftCards.length === DRAFT_CARD_COUNT, `${playerId} should see thirteen draft cards`);
+  assert(!Object.hasOwn(player, "hand"), `${playerId} should not see a pre-draft hand`);
+  assert(player.handCount === 0, `${playerId} pre-draft hand count should be zero`);
 
   let result = null;
-  for (const card of player.draftCards.slice(0, 6)) {
+  for (const card of player.draftCards.slice(0, HAND_SIZE)) {
     const response = await post(`/api/rooms/${code}/draft`, {
       playerId,
       cardInstanceId: card.instanceId
@@ -272,16 +289,39 @@ function assert(condition, message) {
   }
 }
 
-function assertViewerOnlySeesOwnDraftAndHand(game, viewerPlayerId) {
+function assertViewerOnlySeesOwnDraft(game, viewerPlayerId) {
   const viewer = game.players.find((player) => player.id === viewerPlayerId);
   const otherPlayers = game.players.filter((player) => player.id !== viewerPlayerId);
 
-  assert(viewer.draftCards.length === 10, "viewer should see their own ten draft cards");
-  assert(viewer.hand.length === 6, "viewer should see their own current hand");
+  assert(viewer.draftCards.length === DRAFT_CARD_COUNT, "viewer should see their own thirteen draft cards");
+  assert(!Object.hasOwn(viewer, "hand"), "viewer should not see a pre-draft hand");
+  assert(viewer.handCount === 0, "viewer pre-draft hand count should be zero");
   for (const otherPlayer of otherPlayers) {
     assert(!Object.hasOwn(otherPlayer, "draftCards"), "viewer should not see another player's draft cards");
     assert(!Object.hasOwn(otherPlayer, "selectedDraftCards"), "viewer should not see another player's selected draft cards");
     assert(!Object.hasOwn(otherPlayer, "hand"), "viewer should not see another player's hand");
+  }
+}
+
+function assertPlayingViewKeepsPrivateZonesHidden(game, viewerPlayerId) {
+  for (const player of game.players) {
+    assert(!Object.hasOwn(player, "draftCards"), "playing view should not expose draft cards");
+    assert(!Object.hasOwn(player, "selectedDraftCards"), "playing view should not expose selected draft cards");
+    assert(!Object.hasOwn(player, "hand"), "playing view should not expose hand");
+    assert(!Object.hasOwn(player, "drawDeck"), "playing view should not expose draw deck contents");
+    assert(
+      player.drawDeckCount === DRAFT_CARD_COUNT - HAND_SIZE,
+      "playing view should expose only seven-card draw deck count"
+    );
+
+    for (const card of player.receivedCards) {
+      if (card?.revealed === false) {
+        assertHiddenCardIsSafe(
+          card,
+          player.id === viewerPlayerId ? "viewer hidden received card" : "other player's hidden received card"
+        );
+      }
+    }
   }
 }
 
@@ -294,6 +334,7 @@ function assertViewerCannotSeeOtherPlayerHiddenCards(game, viewerPlayerId) {
     assert(!Object.hasOwn(player, "hand"), "playing view should not expose another player's hand");
     assert(!Object.hasOwn(player, "draftCards"), "playing view should not expose another player's draft candidates");
     assert(!Object.hasOwn(player, "selectedDraftCards"), "playing view should not expose another player's selected draft cards");
+    assert(!Object.hasOwn(player, "drawDeck"), "playing view should not expose another player's draw deck contents");
     for (const card of player.receivedCards) {
       if (card?.revealed === false) {
         assertHiddenCardIsSafe(card, "other player's hidden received card");
@@ -307,6 +348,7 @@ function assertPublicViewDoesNotLeakSecrets(game, message) {
     assert(!Object.hasOwn(player, "hand"), `${message} should not expose player hands`);
     assert(!Object.hasOwn(player, "draftCards"), `${message} should not expose draft candidates`);
     assert(!Object.hasOwn(player, "selectedDraftCards"), `${message} should not expose selected draft cards`);
+    assert(!Object.hasOwn(player, "drawDeck"), `${message} should not expose draw deck contents`);
     for (const card of [...player.arrangedCards, ...player.receivedCards]) {
       if (card?.revealed === false) {
         assertHiddenCardIsSafe(card, message);
@@ -327,6 +369,8 @@ function assertHiddenCardIsSafe(card, message) {
   assert(!Object.hasOwn(card, "value"), `${message} should not expose card value`);
   assert(!Object.hasOwn(card, "description"), `${message} should not expose card description`);
   assert(!Object.hasOwn(card, "effect"), `${message} should not expose legacy effect`);
+  assert(!Object.hasOwn(card, "sourcePlayerId"), `${message} should not expose source player id`);
+  assert(!Object.hasOwn(card, "sourceSetId"), `${message} should not expose source set id`);
 }
 
 function sameNumbers(left, right) {

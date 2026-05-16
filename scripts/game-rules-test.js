@@ -11,6 +11,7 @@ import {
 } from "../lib/cards.js";
 import { rollDie } from "../lib/dice.js";
 import { createGameState, DEFAULT_TOTAL_ROUNDS, GAME_PHASE_SETUP, INITIAL_SCORE } from "../lib/game-state.js";
+import { publicGame } from "../lib/public-view.js";
 import {
   applyCardEffect,
   arrangePlayerCards,
@@ -49,7 +50,9 @@ testPassRequiresArrangingAndReadyPlayers();
 testArrangeRejectsDuplicatePhysicalCardsWithoutMutating();
 testArrangeRequiresArrangingPhaseWithoutMutating();
 testPassRightAssignsReceivedHandsAndStartsTurn();
+testPassRightDirectionForTwoThreeAndFourPlayers();
 testPassUsesActivePlayerRingOnly();
+testPublicViewHidesPassedCardAndDrawDeckContents();
 testPassRejectsZeroActivePlayersWithoutMutatingPhase();
 testRevealDiceScoreAndTurn();
 testRevealRequiresPlayingAndTurnPlayer();
@@ -484,6 +487,24 @@ function testPassRightAssignsReceivedHandsAndStartsTurn() {
   assert(game.players.every((player) => player.arrangedCards.length === 0), "passing should clear arranged cards");
 }
 
+function testPassRightDirectionForTwoThreeAndFourPlayers() {
+  assertPassRightDirection(["a", "b"], {
+    a: "b",
+    b: "a"
+  });
+  assertPassRightDirection(["a", "b", "c"], {
+    a: "c",
+    b: "a",
+    c: "b"
+  });
+  assertPassRightDirection(["a", "b", "c", "d"], {
+    a: "d",
+    b: "a",
+    c: "b",
+    d: "c"
+  });
+}
+
 function testPassUsesActivePlayerRingOnly() {
   const game = createGameState([
     { id: "a", name: "A" },
@@ -529,6 +550,42 @@ function testPassRejectsZeroActivePlayersWithoutMutatingPhase() {
 
   assert(result.error === gameRuleErrors.noActivePlayers, "zero active players should not pass cards right");
   assert(game.phase === GAME_PHASE_ARRANGING, "zero active players should not advance phase");
+}
+
+function testPublicViewHidesPassedCardAndDrawDeckContents() {
+  const game = createGameState([
+    { id: "a", name: "A" },
+    { id: "b", name: "B" }
+  ]);
+  game.phase = GAME_PHASE_ARRANGING;
+  game.players[0].arrangedCards = makePositionedCards("a");
+  game.players[1].arrangedCards = makePositionedCards("b");
+  game.players[0].drawDeck = makeDrawDeck("a");
+  game.players[1].drawDeck = makeDrawDeck("b");
+
+  const passResult = passArrangedCardsRight(game);
+  assert(!passResult.error, "privacy setup should pass arranged cards");
+
+  const viewForA = publicGame(game, "a");
+  const playerA = viewForA.players.find((player) => player.id === "a");
+  const playerB = viewForA.players.find((player) => player.id === "b");
+  const hiddenCard = playerA.receivedCards[0];
+
+  assert(playerA.drawDeckCount === DRAFT_CARD_COUNT - HAND_SIZE, "viewer should see own received draw deck count");
+  assert(!Object.hasOwn(playerA, "drawDeck"), "viewer should not see own draw deck contents before drawing");
+  assert(!Object.hasOwn(playerA, "draftCards"), "playing viewer should not see own draft cards");
+  assert(!Object.hasOwn(playerA, "selectedDraftCards"), "playing viewer should not see own selected draft cards");
+  assert(!Object.hasOwn(playerA, "hand"), "playing viewer should not see own hand");
+  assert(!Object.hasOwn(playerB, "drawDeck"), "viewer should not see another player's draw deck contents");
+  assert(!Object.hasOwn(playerB, "draftCards"), "viewer should not see another player's draft cards");
+  assert(!Object.hasOwn(playerB, "hand"), "viewer should not see another player's hand");
+  assert(hiddenCard.position === 1, "hidden received card may expose position");
+  assert(hiddenCard.revealed === false && hiddenCard.state === "hidden", "unrevealed received card should stay hidden");
+  assert(!Object.hasOwn(hiddenCard, "id"), "unrevealed received card should not expose id");
+  assert(!Object.hasOwn(hiddenCard, "name"), "unrevealed received card should not expose name");
+  assert(!Object.hasOwn(hiddenCard, "type"), "unrevealed received card should not expose type");
+  assert(!Object.hasOwn(hiddenCard, "value"), "unrevealed received card should not expose value");
+  assert(!Object.hasOwn(hiddenCard, "description"), "unrevealed received card should not expose description");
 }
 
 function testRevealDiceScoreAndTurn() {
@@ -782,6 +839,34 @@ function makeDrawDeck(prefix) {
     faceUp: false,
     revealed: false
   }));
+}
+
+function assertPassRightDirection(playerIds, expectedSourceByReceiver) {
+  const game = createGameState(playerIds.map((id) => ({ id, name: id.toUpperCase() })));
+  game.phase = GAME_PHASE_ARRANGING;
+  for (const player of game.players) {
+    player.arrangedCards = makePositionedCards(player.id);
+    player.drawDeck = makeDrawDeck(player.id);
+  }
+
+  const result = passArrangedCardsRight(game);
+  assert(!result.error, `${playerIds.length} players should pass cards right`);
+
+  for (const player of game.players) {
+    const expectedSource = expectedSourceByReceiver[player.id];
+    assert(
+      player.receivedCards.every((card) => card.instanceId.startsWith(`${expectedSource}-`)),
+      `${playerIds.length} players: ${player.id} should receive ${expectedSource} cards`
+    );
+    assert(
+      player.drawDeck.every((card) => card.instanceId.startsWith(`${expectedSource}-draw-`)),
+      `${playerIds.length} players: ${player.id} should receive ${expectedSource} draw deck`
+    );
+    assert(
+      player.receivedCards.every((card, index) => card.position === index + 1),
+      `${playerIds.length} players: passed cards should keep positions`
+    );
+  }
 }
 
 function assertNoMoreThanThirteenCards(player, message) {
