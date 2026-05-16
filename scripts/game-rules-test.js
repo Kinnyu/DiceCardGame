@@ -10,7 +10,7 @@ import {
   shuffleDeck
 } from "../lib/cards.js";
 import { rollDie } from "../lib/dice.js";
-import { createGameState, GAME_PHASE_SETUP, INITIAL_SCORE } from "../lib/game-state.js";
+import { createGameState, DEFAULT_TOTAL_ROUNDS, GAME_PHASE_SETUP, INITIAL_SCORE } from "../lib/game-state.js";
 import {
   applyCardEffect,
   arrangePlayerCards,
@@ -34,6 +34,7 @@ import {
 testCardDefinitionsDeckAndDraw();
 testSafeRandomRolls();
 testSafeRandomShuffle();
+testCreateGameStateInitialRounds();
 testCreateDraftCardsBuildsShuffledFullCardPool();
 testDraftingGameStartsPlayersWithThirteenCandidateCards();
 testDealInitialHandsDealsFullHandsAndAdvances();
@@ -94,6 +95,18 @@ function testSafeRandomShuffle() {
   assert(shuffled.length === deck.length, "shuffle should keep deck length");
   assert(shuffled.every(Boolean), "shuffle should not create undefined cards");
   assert(deck.every(Boolean), "shuffle should not break the original deck");
+}
+
+function testCreateGameStateInitialRounds() {
+  const defaultGame = createGameState([{ id: "a", name: "A" }]);
+  assert(defaultGame.totalRounds === DEFAULT_TOTAL_ROUNDS, "game state should default to 15 total rounds");
+  assert(defaultGame.currentRound === 1, "game state should start at current round 1");
+
+  const twentyRoundGame = createGameState([{ id: "a", name: "A" }], { totalRounds: 20 });
+  assert(twentyRoundGame.totalRounds === 20, "game state should accept 20 total rounds");
+
+  const invalidGame = createGameState([{ id: "a", name: "A" }], { totalRounds: 16 });
+  assert(invalidGame.totalRounds === DEFAULT_TOTAL_ROUNDS, "game state should normalize invalid total rounds to default");
 }
 
 function testCreateDraftCardsBuildsShuffledFullCardPool() {

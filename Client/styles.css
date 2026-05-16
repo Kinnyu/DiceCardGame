@@ -5272,9 +5272,116 @@ body:has(#roomView:not(.hidden))::after {
   display: none;
 }
 
+.round-settings {
+  display: grid;
+  gap: 8px;
+  width: min(264px, 100%);
+  justify-self: center;
+  margin: 0;
+  padding: 9px;
+  border: 1px solid rgba(128, 104, 61, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 249, 231, 0.58);
+}
+
+.round-settings legend {
+  padding: 0 6px;
+  color: #4f5f46;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.round-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.round-option {
+  position: relative;
+  min-width: 0;
+}
+
+.round-option input {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.round-option span {
+  display: grid;
+  min-height: 34px;
+  place-items: center;
+  padding: 5px 8px;
+  border: 1px solid rgba(128, 104, 61, 0.32);
+  border-radius: 7px;
+  color: #4d5d45;
+  background: rgba(255, 255, 255, 0.55);
+  font-weight: 900;
+  text-align: center;
+}
+
+.round-option input:checked + span {
+  border-color: rgba(15, 119, 122, 0.72);
+  color: #fff7e4;
+  background: linear-gradient(180deg, #0f777a, #15554e);
+}
+
+.round-option input:focus-visible + span {
+  outline: 2px solid rgba(15, 119, 122, 0.72);
+  outline-offset: 2px;
+}
+
+.round-option input:disabled + span {
+  cursor: default;
+  opacity: 0.78;
+}
+
+.round-settings p {
+  margin: 0;
+  color: #6d634d;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.shell:has(#gamePanel:not(.hidden)) .round-settings {
+  display: none;
+}
+
+.game-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.round-pill {
+  border: 1px solid rgba(126, 104, 63, 0.32);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #315148;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
 @media (max-width: 360px) {
   .shell:has(#roomView:not(.hidden)):not(:has(#gamePanel:not(.hidden))) {
     padding-inline: 18px;
+  }
+
+  .round-settings {
+    width: 100%;
   }
 
   .room-action-view {
@@ -7732,4 +7839,21 @@ body:has(#gamePanel[data-phase="arranging"])::after {
     animation: none !important;
     transition-duration: 1ms !important;
   }
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .game-heading > div {
+  width: 100%;
+  max-width: 100%;
+  justify-self: center;
+  text-align: center;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .game-heading {
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-items: center;
+}
+
+.shell:has(#gamePanel[data-phase="playing"]) .game-heading h3 {
+  max-width: 100%;
+  margin-inline: auto;
 }

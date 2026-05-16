@@ -132,6 +132,21 @@
         <h3 class="room-subheading" data-i18n="room.players">玩家</h3>
         <ul class="player-list" id="playerList"></ul>
 
+        <fieldset class="round-settings" id="roundSettings">
+          <legend id="roundSettingsLegend" data-i18n="room.totalRounds">總輪數</legend>
+          <div class="round-options" role="radiogroup" aria-labelledby="roundSettingsLegend">
+            <label class="round-option">
+              <input type="radio" name="totalRounds" value="15" checked />
+              <span data-i18n="room.rounds15">15 輪</span>
+            </label>
+            <label class="round-option">
+              <input type="radio" name="totalRounds" value="20" />
+              <span data-i18n="room.rounds20">20 輪</span>
+            </label>
+          </div>
+          <p id="roundSettingsHint" data-i18n="room.totalRoundsHostHint">房主可在開始前調整。</p>
+        </fieldset>
+
         <button id="startGameButton" class="primary-button full-width" type="button" data-i18n="room.startGame">開始遊戲</button>
         <button id="readyLeaveRoomButton" class="danger-button ready-leave-button full-width" type="button" data-i18n="room.leave">離開房間</button>
 
@@ -141,7 +156,10 @@
               <p class="eyebrow">Game</p>
               <h3 id="gamePhaseTitle" data-i18n="game.waitingStart">等待開始</h3>
             </div>
-            <div class="turn-pill" id="turnIndicator" data-i18n="game.notStarted">尚未開始</div>
+            <div class="game-status-pills">
+              <div class="round-pill hidden" id="roundIndicator"></div>
+              <div class="turn-pill" id="turnIndicator" data-i18n="game.notStarted">尚未開始</div>
+            </div>
           </div>
 
           <div class="dice-result" id="diceResult" data-i18n="game.waitingFirstRoll">等待第一擲</div>

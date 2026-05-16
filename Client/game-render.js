@@ -9,6 +9,8 @@ export function renderGame(room, context) {
   if (!game) {
     callbacks.resetArrangement();
     elements.gamePanel.querySelector(".card-modal-backdrop")?.remove();
+    elements.roundIndicator.classList.add("hidden");
+    elements.roundIndicator.textContent = "";
     elements.roomView.dataset.phase = "waiting";
     return;
   }
@@ -18,6 +20,7 @@ export function renderGame(room, context) {
   elements.roomView.dataset.phase = phase || "waiting";
   elements.gamePanel.dataset.phase = phase || "waiting";
   elements.gamePhaseTitle.textContent = `Game / ${context.getPhaseTitle(phase)}`;
+  renderRoundIndicator(game, context);
   renderTurnIndicator(game, self, room, context);
   if (phase === "drafting") {
     const { selectedCount } = getDraftSelectionState(self, context);
@@ -50,6 +53,14 @@ export function renderGame(room, context) {
   }
 
   renderRevealedCardModal(game, context);
+}
+
+function renderRoundIndicator(game, context) {
+  const currentRound = Number(game.currentRound);
+  const totalRounds = Number(game.totalRounds);
+  const canShow = Number.isInteger(currentRound) && Number.isInteger(totalRounds) && currentRound > 0 && totalRounds > 0;
+  context.elements.roundIndicator.classList.toggle("hidden", !canShow);
+  context.elements.roundIndicator.textContent = canShow ? t("round.indicator", { current: currentRound, total: totalRounds }) : "";
 }
 
 function renderTurnIndicator(game, self, room, context) {

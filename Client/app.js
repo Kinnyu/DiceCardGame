@@ -8,6 +8,7 @@ import {
   revealCardRequest,
   rollTurnRequest,
   startGameRequest,
+  updateRoomSettingsRequest,
   useCardRequest
 } from "./api-client.js";
 import { getLocale, setupLocaleSwitcher, t, translatePageStaticText } from "./i18n.js";
@@ -26,6 +27,9 @@ const leaveRoomButton = document.querySelector("#leaveRoomButton");
 const readyLeaveRoomButton = document.querySelector("#readyLeaveRoomButton");
 const returnToLobbyButton = document.querySelector("#returnToLobbyButton");
 const startGameButton = document.querySelector("#startGameButton");
+const roundSettings = document.querySelector("#roundSettings");
+const roundSettingsHint = document.querySelector("#roundSettingsHint");
+const totalRoundsInputs = [...document.querySelectorAll("input[name='totalRounds']")];
 const roomCopyCodeButton = document.querySelector("#roomCopyCodeButton");
 const settingsButton = document.querySelector("#settingsButton");
 const settingsMenu = document.querySelector("#settingsMenu");
@@ -42,6 +46,7 @@ const roomMessage = document.querySelector("#roomMessage");
 const playerList = document.querySelector("#playerList");
 const gamePanel = document.querySelector("#gamePanel");
 const gamePhaseTitle = document.querySelector("#gamePhaseTitle");
+const roundIndicator = document.querySelector("#roundIndicator");
 const turnIndicator = document.querySelector("#turnIndicator");
 const diceResult = document.querySelector("#diceResult");
 const draftPanel = document.querySelector("#draftPanel");
@@ -72,6 +77,9 @@ const elements = {
   readyLeaveRoomButton,
   returnToLobbyButton,
   startGameButton,
+  roundSettings,
+  roundSettingsHint,
+  totalRoundsInputs,
   roomCopyCodeButton,
   settingsButton,
   settingsMenu,
@@ -88,6 +96,7 @@ const elements = {
   playerList,
   gamePanel,
   gamePhaseTitle,
+  roundIndicator,
   turnIndicator,
   diceResult,
   draftPanel,
@@ -176,6 +185,7 @@ leaveRoomButton.addEventListener("click", leaveRoom);
 readyLeaveRoomButton.addEventListener("click", leaveRoom);
 returnToLobbyButton.addEventListener("click", returnToLobby);
 startGameButton.addEventListener("click", startGame);
+totalRoundsInputs.forEach((input) => input.addEventListener("change", updateTotalRounds));
 roomCopyCodeButton.addEventListener("click", copyRoomCode);
 settingsButton.addEventListener("click", toggleSettingsMenu);
 settingsCloseButton.addEventListener("click", closeSettingsMenu);
@@ -326,12 +336,13 @@ async function startGame() {
   }
 
   const code = currentRoom.code;
+  const totalRounds = getSelectedTotalRounds();
   const requestId = nextRoomRequestId();
   roomMessage.textContent = "";
   setBusy("start", true);
 
   try {
-    const payload = await startGameRequest(code, playerId);
+    const payload = await startGameRequest(code, playerId, totalRounds);
     if (currentRoom?.code === code) {
       renderRoom(payload.room, requestId);
     }
@@ -339,6 +350,30 @@ async function startGame() {
     roomMessage.textContent = error.message;
   } finally {
     setBusy("start", false);
+  }
+}
+
+async function updateTotalRounds(event) {
+  if (!currentRoom || pendingAction || event.target?.checked !== true || currentRoom.hostId !== playerId) {
+    syncTotalRoundsInputs(currentRoom);
+    return;
+  }
+
+  const code = currentRoom.code;
+  const totalRounds = getSelectedTotalRounds();
+  roomMessage.textContent = "";
+  setBusy("settings", true);
+
+  try {
+    const payload = await updateRoomSettingsRequest(code, playerId, totalRounds);
+    if (currentRoom?.code === code) {
+      renderRoom(payload.room, nextRoomRequestId());
+    }
+  } catch (error) {
+    roomMessage.textContent = error.message;
+    syncTotalRoundsInputs(currentRoom);
+  } finally {
+    setBusy("settings", false);
   }
 }
 
@@ -617,11 +652,25 @@ function renderStaticFallbackText() {
   }
 
   gamePhaseTitle.textContent = t("game.waitingStart");
+  roundIndicator.textContent = "";
+  roundIndicator.classList.add("hidden");
   turnIndicator.textContent = t("game.notStarted");
   diceResult.textContent = t("game.waitingFirstRoll");
   submitArrangeButton.textContent = t("arrange.submit");
   resetArrangeButton.textContent = t("arrange.reset");
   rollButton.textContent = t("turn.roll");
+}
+
+function getSelectedTotalRounds() {
+  const selected = totalRoundsInputs.find((input) => input.checked);
+  return [15, 20].includes(Number(selected?.value)) ? Number(selected.value) : 15;
+}
+
+function syncTotalRoundsInputs(room) {
+  const totalRounds = [15, 20].includes(Number(room?.totalRounds)) ? Number(room.totalRounds) : 15;
+  totalRoundsInputs.forEach((input) => {
+    input.checked = Number(input.value) === totalRounds;
+  });
 }
 
 function renderRoom(room, requestId = nextRoomRequestId()) {

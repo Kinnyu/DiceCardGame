@@ -389,12 +389,12 @@
 ### 15. 開局設定總輪數與等待階段 UI
 負責：Round Setup UI Agent
 
-- [ ] 在開始遊戲前新增總輪數選擇：15 輪或 20 輪。
-- [ ] 建議先閱讀 `Client/index.html`、`Client/app.js`、`Client/room-render.js`、`lib/room-api.js`、`lib/rooms.js`。
-- [ ] 房主或開始者需能在等待/準備畫面設定本場總輪數；預設值需明確。
-- [ ] 後端建立 game state 時保存 `totalRounds`，前端在遊戲中顯示目前輪數 / 總輪數。
+- [x] 在開始遊戲前新增總輪數選擇：15 輪或 20 輪。
+- [x] 建議先閱讀 `Client/index.html`、`Client/app.js`、`Client/room-render.js`、`lib/room-api.js`、`lib/rooms.js`。
+- [x] 房主或開始者需能在等待/準備畫面設定本場總輪數；預設值需明確。
+- [x] 後端建立 game state 時保存 `totalRounds`，前端在遊戲中顯示目前輪數 / 總輪數。
 - [ ] 後端需保存每輪已行動玩家，例如 `actedPlayerIdsThisRound`，供輪數推進、淘汰跳過與終盤判定使用。
-- [ ] 驗收標準：開始前可選 15 或 20 輪；進入遊戲後狀態中有正確總輪數；重新整理與多人同步不遺失設定。
+- [x] 驗收標準：開始前可選 15 或 20 輪；進入遊戲後狀態中有正確總輪數；重新整理與多人同步不遺失設定。
 
 ### 16. 選牌、排牌、傳牌流程調整為新規則
 負責：Draft Arrange Pass Flow Agent

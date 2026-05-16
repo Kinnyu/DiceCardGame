@@ -13,6 +13,7 @@ export function renderRoom(room, context) {
   elements.roomCodeDisplay.textContent = room.code;
   elements.settingsRoomCode.textContent = room.code;
   elements.settingsPlayerCount.textContent = t("room.playerCount", { count: room.players.length });
+  renderRoundSettings(room, context);
   elements.startGameButton.disabled = Boolean(pendingAction) || room.hostId !== playerId || room.status !== "waiting";
   elements.startGameButton.textContent = room.status === "playing" ? t("room.gameInProgress") : t("room.startGame");
   elements.startGameButton.classList.toggle("hidden", room.hostId !== playerId || room.status !== "waiting");
@@ -25,6 +26,20 @@ export function renderRoom(room, context) {
   });
 
   return true;
+}
+
+function renderRoundSettings(room, context) {
+  const { elements, playerId, pendingAction } = context;
+  const totalRounds = [15, 20].includes(Number(room.totalRounds)) ? Number(room.totalRounds) : 15;
+  const canEdit = room.hostId === playerId && room.status === "waiting";
+  elements.roundSettings.classList.toggle("hidden", room.status !== "waiting");
+  elements.roundSettings.dataset.editable = String(canEdit);
+  elements.roundSettingsHint.textContent = canEdit ? t("room.totalRoundsHostHint") : t("room.totalRoundsGuestHint");
+
+  elements.totalRoundsInputs.forEach((input) => {
+    input.checked = Number(input.value) === totalRounds;
+    input.disabled = Boolean(pendingAction) || !canEdit;
+  });
 }
 
 export function renderPlayers(room, context) {

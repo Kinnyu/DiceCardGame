@@ -1,6 +1,6 @@
 import handler, { createVercelStore } from "../api/rooms.js";
 import { DRAFT_CARD_COUNT, DRAFT_MINUS_CARD_COUNT, DRAFT_PLUS_CARD_COUNT, HAND_SIZE } from "../lib/cards.js";
-import { createGameState } from "../lib/game-state.js";
+import { createGameState, DEFAULT_TOTAL_ROUNDS } from "../lib/game-state.js";
 import { publicGame, publicGameState } from "../lib/public-view.js";
 import { apiGameErrors, handleRoomApi } from "../lib/room-api.js";
 import { createMemoryStore } from "../lib/stores.js";
@@ -18,6 +18,7 @@ try {
   testGameStatePublicProjection();
   await testMemoryFallback();
   await testStartCreatesPrivateGameStateInStore();
+  await testStartTotalRoundsApi();
   await testStartKeepsDraftInstanceIdsUniqueAcrossSanitizedPlayerIds();
   await testDraftBeforeStartReturnsGameNotStarted();
   await testDraftCardApiSelectsSixOwnChoices();
@@ -52,6 +53,9 @@ async function testMemoryFallback() {
   const started = await callHandler("POST", `${code}/start`, { playerId: "one" });
   assert(started.statusCode === 200, "host should start the game");
   assert(started.payload.room.status === "playing", "room status should be playing");
+  assert(started.payload.room.totalRounds === DEFAULT_TOTAL_ROUNDS, "start should default totalRounds to 15");
+  assert(started.payload.room.game.totalRounds === DEFAULT_TOTAL_ROUNDS, "public game should expose default totalRounds");
+  assert(started.payload.room.game.currentRound === 1, "public game should expose initial currentRound");
   assertPublicGameShape(started.payload.room.game, "started room should include public game state");
   assert(started.payload.room.game.phase === "drafting", "started public game should enter drafting phase");
   assert(
@@ -91,6 +95,8 @@ async function testStartCreatesPrivateGameStateInStore() {
   assert(storedRoom.status === "playing", "stored room status should be playing");
   assert(storedRoom.game, "stored room should include private game state");
   assert(storedRoom.game.phase === "drafting", "stored game should start in drafting phase");
+  assert(storedRoom.game.totalRounds === DEFAULT_TOTAL_ROUNDS, "stored game should default totalRounds to 15");
+  assert(storedRoom.game.currentRound === 1, "stored game should start on currentRound 1");
   assert(storedRoom.game.players.length === 2, "stored game should use current room players");
   assert(
     storedRoom.game.players.every((player) => player.score === 10),
@@ -130,6 +136,58 @@ async function testStartCreatesPrivateGameStateInStore() {
   );
   assertAllDraftInstanceIdsUnique(storedRoom, "stored game draft cards should have globally unique instance ids");
   assert(JSON.parse(JSON.stringify(storedRoom)).game.phase === "drafting", "stored room should be JSON serializable");
+}
+
+async function testStartTotalRoundsApi() {
+  const rooms = new Map();
+  const store = createMemoryStore(rooms);
+  const created = await callController(store, "POST", "", { playerId: "one", name: "AA" });
+  const code = created.payload.room.code;
+  assert(created.payload.room.totalRounds === DEFAULT_TOTAL_ROUNDS, "created room should expose default totalRounds");
+
+  await callController(store, "POST", `${code}/join`, { playerId: "two", name: "BBB" });
+
+  const updated = await callController(store, "POST", `${code}/settings`, {
+    playerId: "one",
+    totalRounds: 20
+  });
+  assert(updated.statusCode === 200, "host should update totalRounds before start");
+  assert(updated.payload.room.totalRounds === 20, "public waiting room should expose updated totalRounds");
+
+  const guestUpdate = await callController(store, "POST", `${code}/settings`, {
+    playerId: "two",
+    totalRounds: 15
+  });
+  assert(guestUpdate.statusCode === 403, "non-host should not update totalRounds");
+
+  const invalidUpdate = await callController(store, "POST", `${code}/settings`, {
+    playerId: "one",
+    totalRounds: 16
+  });
+  assert(invalidUpdate.statusCode === 400, "invalid waiting totalRounds should be rejected");
+
+  const started = await callController(store, "POST", `${code}/start`, {
+    playerId: "one",
+    totalRounds: 20
+  });
+  assert(started.statusCode === 200, "host should start with 20 rounds");
+  assert(started.payload.room.totalRounds === 20, "started room should keep totalRounds 20");
+  assert(started.payload.room.game.totalRounds === 20, "public game should expose totalRounds 20");
+  assert(started.payload.room.game.currentRound === 1, "public game should expose initial currentRound");
+  assert(rooms.get(code).game.totalRounds === 20, "stored game should save totalRounds 20");
+  assert(rooms.get(code).game.currentRound === 1, "stored game should save initial currentRound");
+
+  const invalidStartRoom = new Map();
+  const invalidStore = createMemoryStore(invalidStartRoom);
+  const invalidCreated = await callController(invalidStore, "POST", "", { playerId: "one", name: "AA" });
+  const invalidCode = invalidCreated.payload.room.code;
+  await callController(invalidStore, "POST", `${invalidCode}/join`, { playerId: "two", name: "BBB" });
+  const invalidStart = await callController(invalidStore, "POST", `${invalidCode}/start`, {
+    playerId: "one",
+    totalRounds: 99
+  });
+  assert(invalidStart.statusCode === 400, "invalid start totalRounds should be rejected");
+  assert(invalidStartRoom.get(invalidCode).status === "waiting", "invalid start should not start the room");
 }
 
 async function testStartKeepsDraftInstanceIdsUniqueAcrossSanitizedPlayerIds() {
@@ -791,6 +849,8 @@ function testGameStatePublicProjection() {
   const view = publicGameState(game);
   const parsed = JSON.parse(JSON.stringify(view));
   assert(parsed.phase === view.phase, "public game state should be JSON serializable");
+  assert(view.totalRounds === DEFAULT_TOTAL_ROUNDS, "public game state should include totalRounds");
+  assert(view.currentRound === 1, "public game state should include currentRound");
 
   const publicPlayer = view.players[0];
   assert(!Object.hasOwn(publicPlayer, "hand"), "public player should not expose private hand");
@@ -1102,6 +1162,8 @@ function assertShapeMatches(leftRoom, rightRoom, message) {
 function assertPublicGameShape(game, message, expectedPhase = "drafting") {
   assert(game, `${message}: game presence`);
   assert(game.phase === expectedPhase, `${message}: ${expectedPhase} phase`);
+  assert(game.totalRounds === DEFAULT_TOTAL_ROUNDS || game.totalRounds === 20, `${message}: totalRounds`);
+  assert(game.currentRound === 1, `${message}: currentRound`);
   assert(game.direction === "clockwise", `${message}: direction`);
   assert(game.dice.lastRoll === null, `${message}: dice last roll`);
   assert(Array.isArray(game.players), `${message}: game players`);

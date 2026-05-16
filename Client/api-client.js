@@ -46,10 +46,17 @@ export function leaveRoomRequest(code, playerId) {
   });
 }
 
-export function startGameRequest(code, playerId) {
+export function updateRoomSettingsRequest(code, playerId, totalRounds) {
+  return requestJson(`/api/rooms/${code}/settings`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, totalRounds })
+  });
+}
+
+export function startGameRequest(code, playerId, totalRounds) {
   return requestJson(`/api/rooms/${code}/start`, {
     method: "POST",
-    body: JSON.stringify({ playerId })
+    body: JSON.stringify({ playerId, totalRounds })
   });
 }
 
